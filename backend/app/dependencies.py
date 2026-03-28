@@ -5,6 +5,8 @@ from app.config import Settings, get_settings
 from app.schemas.auth import SupabaseUser
 from app.services.instagram import InstagramReelScraperService
 from app.services.supabase_auth import SupabaseAuthService
+from app.services.tiktok import TikTokVideoScraperService
+from app.services.youtube import YouTubeShortsScraperService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -23,6 +25,18 @@ def get_instagram_reel_scraper_service(
     request: Request,
 ) -> InstagramReelScraperService:
     return InstagramReelScraperService(http_client=request.app.state.http_client)
+
+
+def get_tiktok_video_scraper_service(
+    request: Request,
+) -> TikTokVideoScraperService:
+    return TikTokVideoScraperService(http_client=request.app.state.http_client)
+
+
+def get_youtube_shorts_scraper_service(
+    request: Request,
+) -> YouTubeShortsScraperService:
+    return YouTubeShortsScraperService(http_client=request.app.state.http_client)
 
 
 def get_access_token(

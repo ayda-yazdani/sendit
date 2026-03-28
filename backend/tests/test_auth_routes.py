@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 from app.dependencies import (
     get_instagram_reel_scraper_service,
     get_supabase_auth_service,
+    get_tiktok_video_scraper_service,
+    get_youtube_shorts_scraper_service,
 )
 from app.main import app
 from app.schemas.auth import (
@@ -18,6 +20,8 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.schemas.instagram import InstagramReelScrapeRequest, InstagramReelScrapeResponse
+from app.schemas.tiktok import TikTokVideoScrapeRequest, TikTokVideoScrapeResponse
+from app.schemas.youtube import YouTubeShortScrapeRequest, YouTubeShortScrapeResponse
 
 
 class StubSupabaseAuthService:
@@ -98,6 +102,46 @@ class StubInstagramReelScraperService:
         )
 
 
+class StubTikTokVideoScraperService:
+    def __init__(self) -> None:
+        self.request_payload: TikTokVideoScrapeRequest | None = None
+
+    async def scrape_video(
+        self, payload: TikTokVideoScrapeRequest
+    ) -> TikTokVideoScrapeResponse:
+        self.request_payload = payload
+        return TikTokVideoScrapeResponse(
+            requested_url=payload.url,
+            resolved_url="https://www.tiktok.com/@creator/video/9876543210",
+            canonical_url="https://www.tiktok.com/@creator/video/9876543210",
+            video_id="9876543210",
+            title="Example TikTok",
+            description="Example TikTok description",
+            thumbnail_url="https://cdn.example.com/tiktok-thumb.jpg",
+            open_graph={"og:title": "Example TikTok"},
+        )
+
+
+class StubYouTubeShortsScraperService:
+    def __init__(self) -> None:
+        self.request_payload: YouTubeShortScrapeRequest | None = None
+
+    async def scrape_short(
+        self, payload: YouTubeShortScrapeRequest
+    ) -> YouTubeShortScrapeResponse:
+        self.request_payload = payload
+        return YouTubeShortScrapeResponse(
+            requested_url=payload.url,
+            resolved_url="https://www.youtube.com/shorts/xyz987",
+            canonical_url="https://www.youtube.com/shorts/xyz987",
+            short_id="xyz987",
+            title="Example Short",
+            description="Example Short description",
+            thumbnail_url="https://cdn.example.com/youtube-thumb.jpg",
+            open_graph={"og:title": "Example Short"},
+        )
+
+
 @pytest.fixture
 def stub_auth_service() -> StubSupabaseAuthService:
     return StubSupabaseAuthService()
@@ -109,13 +153,31 @@ def stub_instagram_scraper_service() -> StubInstagramReelScraperService:
 
 
 @pytest.fixture
+def stub_tiktok_scraper_service() -> StubTikTokVideoScraperService:
+    return StubTikTokVideoScraperService()
+
+
+@pytest.fixture
+def stub_youtube_scraper_service() -> StubYouTubeShortsScraperService:
+    return StubYouTubeShortsScraperService()
+
+
+@pytest.fixture
 def client(
     stub_auth_service: StubSupabaseAuthService,
     stub_instagram_scraper_service: StubInstagramReelScraperService,
+    stub_tiktok_scraper_service: StubTikTokVideoScraperService,
+    stub_youtube_scraper_service: StubYouTubeShortsScraperService,
 ) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_supabase_auth_service] = lambda: stub_auth_service
     app.dependency_overrides[get_instagram_reel_scraper_service] = (
         lambda: stub_instagram_scraper_service
+    )
+    app.dependency_overrides[get_tiktok_video_scraper_service] = (
+        lambda: stub_tiktok_scraper_service
+    )
+    app.dependency_overrides[get_youtube_shorts_scraper_service] = (
+        lambda: stub_youtube_scraper_service
     )
     with TestClient(app) as test_client:
         yield test_client
@@ -263,3 +325,43 @@ def test_scrape_reel_rejects_unverified_user(
     assert response.json() == {
         "detail": "User must have a verified email or phone to access this resource."
     }
+
+
+def test_scrape_tiktok_video_returns_metadata_for_verified_user(
+    client: TestClient,
+    stub_tiktok_scraper_service: StubTikTokVideoScraperService,
+) -> None:
+    response = client.post(
+        "/api/v1/tiktok/videos/scrape",
+        json={"url": "https://www.tiktok.com/@creator/video/9876543210"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert stub_tiktok_scraper_service.request_payload is not None
+    assert (
+        str(stub_tiktok_scraper_service.request_payload.url)
+        == "https://www.tiktok.com/@creator/video/9876543210"
+    )
+    assert response.json()["video_id"] == "9876543210"
+    assert response.json()["title"] == "Example TikTok"
+
+
+def test_scrape_youtube_short_returns_metadata_for_verified_user(
+    client: TestClient,
+    stub_youtube_scraper_service: StubYouTubeShortsScraperService,
+) -> None:
+    response = client.post(
+        "/api/v1/youtube/shorts/scrape",
+        json={"url": "https://www.youtube.com/shorts/xyz987"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert stub_youtube_scraper_service.request_payload is not None
+    assert (
+        str(stub_youtube_scraper_service.request_payload.url)
+        == "https://www.youtube.com/shorts/xyz987"
+    )
+    assert response.json()["short_id"] == "xyz987"
+    assert response.json()["title"] == "Example Short"

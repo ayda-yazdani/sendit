@@ -3,10 +3,10 @@ import re
 import httpx
 from fastapi import HTTPException, status
 
-from app.schemas.instagram import (
-    InstagramAuthor,
-    InstagramReelScrapeRequest,
-    InstagramReelScrapeResponse,
+from app.schemas.youtube import (
+    YouTubeChannel,
+    YouTubeShortScrapeRequest,
+    YouTubeShortScrapeResponse,
 )
 from app.services.social_scrape import (
     DEFAULT_SCRAPE_USER_AGENT,
@@ -19,13 +19,13 @@ from app.services.social_scrape import (
 )
 
 
-class InstagramReelScraperService:
+class YouTubeShortsScraperService:
     def __init__(self, http_client: httpx.AsyncClient) -> None:
         self._http_client = http_client
 
-    async def scrape_reel(
-        self, payload: InstagramReelScrapeRequest
-    ) -> InstagramReelScrapeResponse:
+    async def scrape_short(
+        self, payload: YouTubeShortScrapeRequest
+    ) -> YouTubeShortScrapeResponse:
         try:
             response = await self._http_client.get(
                 str(payload.url),
@@ -38,24 +38,24 @@ class InstagramReelScraperService:
         except httpx.TimeoutException as exc:
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Timed out while fetching the Instagram reel.",
+                detail="Timed out while fetching the YouTube Short.",
             ) from exc
         except httpx.HTTPError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not fetch the Instagram reel.",
+                detail="Could not fetch the YouTube Short.",
             ) from exc
 
         if response.status_code == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Instagram reel not found.",
+                detail="YouTube Short not found.",
             )
 
         if response.status_code >= status.HTTP_400_BAD_REQUEST:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Instagram returned an error while fetching the reel.",
+                detail="YouTube returned an error while fetching the Short.",
             )
 
         parser = MetadataHTMLParser()
@@ -65,8 +65,7 @@ class InstagramReelScraperService:
         json_ld_documents = parse_json_ld_blocks(parser.json_ld_blocks)
         primary_video = pick_primary_object(json_ld_documents)
 
-        author = self._extract_author(primary_video)
-        reel_id = self._extract_reel_id(str(response.url))
+        short_id = self._extract_short_id(str(response.url))
         title = open_graph.get("og:title") or pick_string(primary_video, "name")
         description = open_graph.get("og:description") or pick_string(
             primary_video, "description"
@@ -78,33 +77,38 @@ class InstagramReelScraperService:
             or pick_string(primary_video, "contentUrl")
         )
 
-        if reel_id is None and not any([title, description, thumbnail_url, video_url]):
+        if short_id is None and not any([title, description, thumbnail_url, video_url]):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not extract Instagram reel metadata from the response.",
+                detail="Could not extract YouTube Short metadata from the response.",
             )
 
-        return InstagramReelScrapeResponse(
+        embed_url = pick_string(primary_video, "embedUrl")
+        if embed_url is None and short_id is not None:
+            embed_url = f"https://www.youtube.com/embed/{short_id}"
+
+        return YouTubeShortScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
             canonical_url=open_graph.get("og:url") or parser.canonical_url,
-            reel_id=reel_id,
+            short_id=short_id,
             title=title,
             description=description,
             thumbnail_url=thumbnail_url,
             video_url=video_url,
-            embed_url=pick_string(primary_video, "embedUrl"),
+            embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
-            author=author,
-            published_at=pick_string(primary_video, "uploadDate"),
+            channel=self._extract_channel(primary_video),
+            published_at=pick_string(primary_video, "uploadDate")
+            or pick_string(primary_video, "datePublished"),
             duration=pick_string(primary_video, "duration"),
             open_graph=open_graph,
             json_ld=json_ld_documents,
         )
 
-    def _extract_author(
+    def _extract_channel(
         self, primary_video: dict[str, object] | None
-    ) -> InstagramAuthor | None:
+    ) -> YouTubeChannel | None:
         if not isinstance(primary_video, dict):
             return None
 
@@ -112,21 +116,29 @@ class InstagramReelScraperService:
         if not isinstance(author_payload, dict):
             return None
 
-        profile_url = author_payload.get("url")
-        profile_url = profile_url if isinstance(profile_url, str) else None
+        channel_url = author_payload.get("url")
+        channel_url = channel_url if isinstance(channel_url, str) else None
 
-        return InstagramAuthor(
+        return YouTubeChannel(
             name=pick_string(author_payload, "name"),
-            username=self._extract_username(profile_url),
-            profile_url=profile_url,
+            handle=self._extract_handle(channel_url),
+            channel_id=pick_string(author_payload, "identifier")
+            or self._extract_channel_id(channel_url),
+            channel_url=channel_url,
         )
 
-    def _extract_reel_id(self, url: str) -> str | None:
-        match = re.search(r"/reel/([^/?#]+)/?", url)
+    def _extract_short_id(self, url: str) -> str | None:
+        match = re.search(r"/shorts/([^/?#]+)/?", url)
         return match.group(1) if match else None
 
-    def _extract_username(self, url: str | None) -> str | None:
+    def _extract_handle(self, url: str | None) -> str | None:
         if not url:
             return None
-        match = re.search(r"instagram\.com/([^/?#]+)/?", url)
+        match = re.search(r"youtube\.com/@([^/?#]+)/?", url)
+        return match.group(1) if match else None
+
+    def _extract_channel_id(self, url: str | None) -> str | None:
+        if not url:
+            return None
+        match = re.search(r"youtube\.com/channel/([^/?#]+)/?", url)
         return match.group(1) if match else None
