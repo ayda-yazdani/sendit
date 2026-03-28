@@ -54,3 +54,42 @@ def test_extract_short_id_handle_and_channel_id_parse_youtube_urls() -> None:
     assert short_id == "xyz987"
     assert handle == "shortscreator"
     assert channel_id == "UC123456789"
+
+
+def test_select_best_video_format_url_prefers_highest_resolution_video_stream() -> None:
+    service = build_service()
+
+    url = service._select_best_video_format_url(
+        {
+            "formats": [
+                {
+                    "format_id": "251",
+                    "url": "https://example.com/audio.webm",
+                    "vcodec": "none",
+                    "acodec": "opus",
+                },
+                {
+                    "format_id": "298",
+                    "url": "https://example.com/video-720.mp4",
+                    "vcodec": "avc1.4d4020",
+                    "height": 1280,
+                    "width": 720,
+                    "fps": 45,
+                    "ext": "mp4",
+                    "protocol": "https",
+                },
+                {
+                    "format_id": "399",
+                    "url": "https://example.com/video-1080.mp4",
+                    "vcodec": "av01.0.09M.08",
+                    "height": 1920,
+                    "width": 1080,
+                    "fps": 45,
+                    "ext": "mp4",
+                    "protocol": "https",
+                },
+            ]
+        }
+    )
+
+    assert url == "https://example.com/video-1080.mp4"

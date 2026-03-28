@@ -21,6 +21,7 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.schemas.instagram import InstagramReelScrapeRequest, InstagramReelScrapeResponse
+from app.schemas.media import MediaFrame
 from app.schemas.tiktok import TikTokVideoScrapeRequest, TikTokVideoScrapeResponse
 from app.schemas.youtube import YouTubeShortScrapeRequest, YouTubeShortScrapeResponse
 
@@ -113,6 +114,15 @@ class StubInstagramReelScraperService:
             title="Example reel",
             description="Example description",
             thumbnail_url="https://cdn.example.com/thumb.jpg",
+            preview_image_urls=["https://cdn.example.com/thumb.jpg"],
+            frames=[
+                MediaFrame(
+                    image_url=f"data:image/jpeg;base64,instagram-{index}",
+                    timestamp_seconds=float(index * 2),
+                    timestamp_text=f"0:{index * 2:02d}",
+                )
+                for index in range(8)
+            ],
             open_graph={"og:title": "Example reel"},
         )
 
@@ -133,6 +143,15 @@ class StubTikTokVideoScraperService:
             title="Example TikTok",
             description="Example TikTok description",
             thumbnail_url="https://cdn.example.com/tiktok-thumb.jpg",
+            preview_image_urls=["https://cdn.example.com/tiktok-thumb.jpg"],
+            frames=[
+                MediaFrame(
+                    image_url=f"data:image/jpeg;base64,tiktok-{index}",
+                    timestamp_seconds=float(index * 2),
+                    timestamp_text=f"0:{index * 2:02d}",
+                )
+                for index in range(8)
+            ],
             video_url="https://cdn.example.com/tiktok-video.mp4",
             open_graph={"og:title": "Example TikTok"},
         )
@@ -154,6 +173,15 @@ class StubYouTubeShortsScraperService:
             title="Example Short",
             description="Example Short description",
             thumbnail_url="https://cdn.example.com/youtube-thumb.jpg",
+            preview_image_urls=["https://cdn.example.com/youtube-thumb.jpg"],
+            frames=[
+                MediaFrame(
+                    image_url=f"data:image/jpeg;base64,youtube-{index}",
+                    timestamp_seconds=float(index * 2),
+                    timestamp_text=f"0:{index * 2:02d}",
+                )
+                for index in range(8)
+            ],
             open_graph={"og:title": "Example Short"},
         )
 
@@ -378,6 +406,8 @@ def test_scrape_reel_returns_metadata_for_verified_user(
     assert response.json()["reel_id"] == "abc123"
     assert response.json()["title"] == "Example reel"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/thumb.jpg"
+    assert len(response.json()["frames"]) == 8
+    assert response.json()["frames"][0]["timestamp_text"] == "0:00"
 
 
 def test_scrape_reel_rejects_unverified_user(
@@ -420,6 +450,8 @@ def test_scrape_tiktok_video_returns_metadata_for_verified_user(
     assert response.json()["video_id"] == "9876543210"
     assert response.json()["title"] == "Example TikTok"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert len(response.json()["frames"]) == 8
+    assert response.json()["frames"][0]["timestamp_text"] == "0:00"
 
 
 def test_scrape_youtube_short_returns_metadata_for_verified_user(
@@ -441,6 +473,8 @@ def test_scrape_youtube_short_returns_metadata_for_verified_user(
     assert response.json()["short_id"] == "xyz987"
     assert response.json()["title"] == "Example Short"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/youtube-thumb.jpg"
+    assert len(response.json()["frames"]) == 8
+    assert response.json()["frames"][0]["timestamp_text"] == "0:00"
 
 
 def test_unified_media_scrape_returns_normalized_tiktok_payload(
@@ -462,6 +496,15 @@ def test_unified_media_scrape_returns_normalized_tiktok_payload(
         "title": "Example TikTok",
         "description": "Example TikTok description",
         "cover_image_url": "https://cdn.example.com/tiktok-thumb.jpg",
+        "preview_image_urls": ["https://cdn.example.com/tiktok-thumb.jpg"],
+        "frames": [
+            {
+                "image_url": f"data:image/jpeg;base64,tiktok-{index}",
+                "timestamp_seconds": float(index * 2),
+                "timestamp_text": f"0:{index * 2:02d}",
+            }
+            for index in range(8)
+        ],
         "video_url": "https://cdn.example.com/tiktok-video.mp4",
         "embed_url": None,
         "post_date": None,
@@ -483,6 +526,8 @@ def test_unified_media_scrape_returns_normalized_instagram_payload(
     assert response.json()["platform"] == "instagram"
     assert response.json()["media_id"] == "abc123"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/thumb.jpg"
+    assert len(response.json()["frames"]) == 8
+    assert response.json()["frames"][0]["timestamp_text"] == "0:00"
 
 
 def test_unified_media_scrape_returns_normalized_youtube_payload(
@@ -498,6 +543,8 @@ def test_unified_media_scrape_returns_normalized_youtube_payload(
     assert response.json()["platform"] == "youtube"
     assert response.json()["media_id"] == "xyz987"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/youtube-thumb.jpg"
+    assert len(response.json()["frames"]) == 8
+    assert response.json()["frames"][0]["timestamp_text"] == "0:00"
 
 
 def test_unified_media_scrape_rejects_unsupported_url(

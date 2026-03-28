@@ -25,6 +25,8 @@ function emptySummary() {
   return {
     platform: null,
     coverImageUrl: null,
+    duration: null,
+    frames: [],
     videoUrl: null,
     embedUrl: null,
     canonicalUrl: null,
@@ -56,6 +58,30 @@ function formatProviders(external) {
     .map(([provider]) => provider);
 
   return enabled.length > 0 ? enabled.join(", ") : "No enabled providers returned.";
+}
+
+function formatDuration(value) {
+  if (!value || typeof value !== "string") {
+    return "Unknown";
+  }
+
+  const match = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (!match) {
+    return value;
+  }
+
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Math.round(Number(match[3] || 0));
+  const totalMinutes = hours * 60 + minutes;
+
+  if (hours > 0) {
+    const displayMinutes = String(minutes).padStart(2, "0");
+    const displaySeconds = String(seconds).padStart(2, "0");
+    return `${hours}:${displayMinutes}:${displaySeconds}`;
+  }
+
+  return `${totalMinutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 async function parseResponse(response) {
@@ -135,6 +161,8 @@ export default function App() {
     setSummary({
       platform: payload.platform || null,
       coverImageUrl: payload.cover_image_url || null,
+      duration: payload.duration || null,
+      frames: Array.isArray(payload.frames) ? payload.frames.slice(0, 8) : [],
       videoUrl: payload.video_url || null,
       embedUrl: payload.embed_url || null,
       canonicalUrl: payload.canonical_url || payload.resolved_url || payload.requested_url || null,
@@ -433,8 +461,8 @@ export default function App() {
         <p className="subtitle">
           Check that the configured Supabase project key works, register or sign in,
           then paste a supported social video URL and inspect the returned cover image,
-          description, post date, and user details. This React page is meant for local
-          development only.
+          8 evenly spaced frames, description, post date, and user details. This React
+          page is meant for local development only.
         </p>
       </section>
 
@@ -618,6 +646,32 @@ export default function App() {
                 <span>No cover image returned yet.</span>
               )}
             </div>
+
+            <article className="meta-card">
+              <h3>Frames</h3>
+              {summary.duration ? (
+                <p className="frames-duration">
+                  Video duration: {formatDuration(summary.duration)}
+                </p>
+              ) : null}
+              {summary.frames.length > 0 ? (
+                <div className="frames-grid">
+                  {summary.frames.map((frame, index) => (
+                    <figure
+                      className="frame-card"
+                      key={`${frame.timestamp_text || index}-${index}`}
+                    >
+                      <img alt={`Frame ${index + 1}`} src={frame.image_url} />
+                      <figcaption>
+                        Frame {index + 1} at {frame.timestamp_text}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              ) : (
+                <p>No extracted frames returned yet.</p>
+              )}
+            </article>
 
             <div className="meta-grid">
               <article className="meta-card">

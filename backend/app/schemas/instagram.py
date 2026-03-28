@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, computed_field, field_validator
 
+from app.schemas.media import MediaFrame
+
 
 class InstagramAuthor(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -41,6 +43,8 @@ class InstagramReelScrapeResponse(BaseModel):
     title: str | None = None
     description: str | None = None
     thumbnail_url: AnyHttpUrl | None = None
+    preview_image_urls: list[AnyHttpUrl] = Field(default_factory=list)
+    frames: list[MediaFrame] = Field(default_factory=list)
     video_url: AnyHttpUrl | None = None
     embed_url: AnyHttpUrl | None = None
     site_name: str | None = None

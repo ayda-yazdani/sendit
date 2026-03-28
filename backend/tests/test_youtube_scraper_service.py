@@ -3,7 +3,23 @@ import pytest
 from fastapi import HTTPException
 
 from app.schemas.youtube import YouTubeShortScrapeRequest
+from app.schemas.media import MediaFrame
 from app.services.youtube import YouTubeShortsScraperService
+
+EXPECTED_FRAMES = [
+    MediaFrame(
+        image_url=f"data:image/jpeg;base64,youtube-{index}",
+        timestamp_seconds=float(index * 2),
+        timestamp_text=f"0:{index * 2:02d}",
+    )
+    for index in range(8)
+]
+
+
+class StubFrameService:
+    async def extract_frame_captures(self, **_: object) -> list[MediaFrame]:
+        return EXPECTED_FRAMES
+
 
 YOUTUBE_HTML = """
 <html>
@@ -122,19 +138,24 @@ async def test_scrape_short_extracts_youtube_metadata() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/xyz987")
         )
 
     assert len(requests) == 1
     assert requests[0].headers["User-Agent"]
+    assert "CONSENT=" in requests[0].headers["Cookie"]
     assert str(result.requested_url) == "https://www.youtube.com/shorts/xyz987"
     assert result.short_id == "xyz987"
     assert result.title == "Example Short title"
     assert result.description == "Example Short description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/youtube-thumb.jpg"
     assert str(result.cover_image_url) == "https://cdn.example.com/youtube-thumb.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.embed_url) == "https://www.youtube.com/embed/xyz987"
     assert result.channel is not None
     assert result.user is not None
@@ -154,7 +175,10 @@ async def test_scrape_short_falls_back_to_non_og_metadata() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/xyz987")
         )
@@ -163,6 +187,7 @@ async def test_scrape_short_falls_back_to_non_og_metadata() -> None:
     assert result.title == "Sparse Short title"
     assert result.description == "Sparse Short description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/sparse-thumb.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.canonical_url) == "https://www.youtube.com/shorts/xyz987"
     assert str(result.embed_url) == "https://www.youtube.com/embed/xyz987"
 
@@ -178,7 +203,10 @@ async def test_scrape_short_falls_back_to_initial_player_response() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/xyz987")
         )
@@ -188,6 +216,7 @@ async def test_scrape_short_falls_back_to_initial_player_response() -> None:
     assert result.description == "Extracted from ytInitialPlayerResponse"
     assert result.duration == "PT59S"
     assert str(result.thumbnail_url) == "https://cdn.example.com/player-thumb-large.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert result.channel is not None
     assert result.channel.name == "Player Creator"
     assert result.channel.handle == "playercreator"
@@ -225,12 +254,16 @@ async def test_scrape_short_retries_when_youtube_redirects_to_consent() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/kgU2-KfUIrE")
         )
 
-    assert len(requests) >= 3
+    assert len(requests) >= 1
+    assert "CONSENT=" in requests[0].headers["Cookie"]
     assert result.title == "Player Response Short"
     assert result.short_id == "kgU2-KfUIrE"
 
@@ -253,7 +286,10 @@ async def test_scrape_short_falls_back_to_oembed_when_page_metadata_is_blocked()
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/kgU2-KfUIrE")
         )
@@ -261,6 +297,7 @@ async def test_scrape_short_falls_back_to_oembed_when_page_metadata_is_blocked()
     assert result.short_id == "kgU2-KfUIrE"
     assert result.title == "Popular Memes (Then Vs Now) #shorts #memes #nostalgia"
     assert str(result.thumbnail_url) == "https://i.ytimg.com/vi/kgU2-KfUIrE/hq2.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.embed_url) == "https://www.youtube.com/embed/kgU2-KfUIrE?feature=oembed"
     assert result.channel is not None
     assert result.channel.name == "BRANDOMEMES"
@@ -273,7 +310,10 @@ async def test_scrape_short_returns_404_for_missing_short() -> None:
         return httpx.Response(404, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         with pytest.raises(HTTPException) as exc_info:
             await service.scrape_short(
                 YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/missing")
@@ -294,7 +334,10 @@ async def test_scrape_short_returns_partial_response_when_only_short_id_is_known
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = YouTubeShortsScraperService(http_client=client)
+        service = YouTubeShortsScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_short(
             YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/empty123")
         )
@@ -305,3 +348,4 @@ async def test_scrape_short_returns_partial_response_when_only_short_id_is_known
     assert result.title is None
     assert result.description is None
     assert result.thumbnail_url is None
+    assert result.frames == EXPECTED_FRAMES
