@@ -70,12 +70,25 @@ async function fetchOpenGraphMetadata(url: string) {
   }
 }
 
+// ---- HTML ENTITY DECODING ----
+
+function decodeEntities(text: string | null): string | null {
+  if (!text) return null;
+  return text
+    .replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#x2019;/g, '\u2019').replace(/&#x2018;/g, '\u2018')
+    .replace(/&#x201C;/g, '\u201C').replace(/&#x201D;/g, '\u201D')
+    .replace(/&#39;/g, "'").replace(/&#x27;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 // ---- MAP SCRAPER RESPONSE TO extraction_data ----
 
 function mapToExtractionData(scraperData: any, url: string, platform: Platform) {
   return {
-    title: scraperData.title || null,
-    description: scraperData.description || null,
+    title: decodeEntities(scraperData.title),
+    description: decodeEntities(scraperData.description),
     thumbnail_url: scraperData.cover_image_url || null,
     video_url: scraperData.video_url || null,
     creator: scraperData.user?.username || scraperData.user?.name || null,
@@ -109,21 +122,15 @@ function mapToExtractionData(scraperData: any, url: string, platform: Platform) 
 
 function guessClassification(data: any): string | null {
   const text = `${data.title || ""} ${data.description || ""}`.toLowerCase();
+  if (!text.trim() || text.length < 10) return null; // Not enough data to classify
 
-  // Real event signals: dates, tickets, booking
-  if (/ticket|book now|get tickets|event|tonight|this saturday|this friday/i.test(text)) return "real_event";
-
-  // Real venue signals: specific place names with location language
-  if (/restaurant|bar|cafe|club|rooftop|pub|venue/i.test(text) && /visit|check out|review|best/i.test(text)) return "real_venue";
-
-  // Recipe signals
+  if (/ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open/i.test(text)) return "real_event";
+  if (/restaurant|bar|cafe|club|rooftop|pub|venue/i.test(text) && /visit|check out|review|best|try this/i.test(text)) return "real_venue";
   if (/recipe|cook|ingredient|how to make|easy meal|homemade/i.test(text)) return "recipe_food";
+  if (/meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political|satire/i.test(text)) return "humour_identity";
+  if (/travel|sunset|aesthetic|vibes|mood|inspo|beautiful|dreamy|goals/i.test(text)) return "vibe_inspiration";
 
-  // Humour/identity signals
-  if (/meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political/i.test(text)) return "humour_identity";
-
-  // Default
-  return "vibe_inspiration";
+  return null; // Unknown — don't force a classification
 }
 
 // ---- MAIN HANDLER ----

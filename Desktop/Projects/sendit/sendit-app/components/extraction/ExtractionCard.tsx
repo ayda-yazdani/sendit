@@ -1,6 +1,23 @@
-import { View, Text, StyleSheet, Image, Pressable, Linking } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable, Linking, Alert } from "react-native";
 import { Platform as PlatformType, PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
 import { theme } from "@/constants/Theme";
+
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#x2019;/g, '\u2019')
+    .replace(/&#x2018;/g, '\u2018')
+    .replace(/&#x201C;/g, '\u201C')
+    .replace(/&#x201D;/g, '\u201D')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
 
 interface ExtractionData {
   title?: string | null;
@@ -83,7 +100,7 @@ export function ExtractionCard({
   return (
     <Pressable
       style={[styles.card, classStyle && { borderLeftColor: classStyle.color, borderLeftWidth: 4 }]}
-      onPress={() => Linking.openURL(url)}
+      onPress={() => Linking.openURL(url).catch(() => {})}
     >
       {/* Header: platform + classification + time */}
       <View style={styles.headerRow}>
@@ -103,7 +120,7 @@ export function ExtractionCard({
         )}
         <View style={styles.contentText}>
           {data.title && (
-            <Text style={styles.title} numberOfLines={2}>{data.title}</Text>
+            <Text style={styles.title} numberOfLines={2}>{decodeHtmlEntities(data.title)}</Text>
           )}
           {data.creator && (
             <Text style={styles.creator}>@{data.creator}</Text>
@@ -166,7 +183,7 @@ export function ExtractionCard({
           style={styles.bookingButton}
           onPress={(e) => {
             e.stopPropagation?.();
-            Linking.openURL(data.booking_url!);
+            Linking.openURL(data.booking_url!).catch(() => {});
           }}
         >
           <Text style={styles.bookingText}>🎟 Get Tickets</Text>
