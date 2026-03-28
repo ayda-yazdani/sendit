@@ -49,6 +49,37 @@ YOUTUBE_SPARSE_HTML = """
 </html>
 """
 
+YOUTUBE_PLAYER_RESPONSE_HTML = """
+<html>
+  <head>
+    <link rel="canonical" href="https://www.youtube.com/shorts/xyz987" />
+    <script>
+      var ytInitialPlayerResponse = {
+        "videoDetails": {
+          "title": "Player Response Short",
+          "shortDescription": "Extracted from ytInitialPlayerResponse",
+          "lengthSeconds": "59",
+          "channelId": "UCPLAYER123",
+          "author": "Player Creator",
+          "thumbnail": {
+            "thumbnails": [
+              {"url": "https://cdn.example.com/player-thumb-small.jpg"},
+              {"url": "https://cdn.example.com/player-thumb-large.jpg"}
+            ]
+          }
+        },
+        "microformat": {
+          "playerMicroformatRenderer": {
+            "ownerProfileUrl": "https://www.youtube.com/@playercreator"
+          }
+        }
+      };
+    </script>
+  </head>
+  <body></body>
+</html>
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_short_extracts_youtube_metadata() -> None:
@@ -107,6 +138,33 @@ async def test_scrape_short_falls_back_to_non_og_metadata() -> None:
     assert str(result.thumbnail_url) == "https://cdn.example.com/sparse-thumb.jpg"
     assert str(result.canonical_url) == "https://www.youtube.com/shorts/xyz987"
     assert str(result.embed_url) == "https://www.youtube.com/embed/xyz987"
+
+
+@pytest.mark.anyio
+async def test_scrape_short_falls_back_to_initial_player_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=YOUTUBE_PLAYER_RESPONSE_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        result = await service.scrape_short(
+            YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/xyz987")
+        )
+
+    assert result.short_id == "xyz987"
+    assert result.title == "Player Response Short"
+    assert result.description == "Extracted from ytInitialPlayerResponse"
+    assert result.duration == "PT59S"
+    assert str(result.thumbnail_url) == "https://cdn.example.com/player-thumb-large.jpg"
+    assert result.channel is not None
+    assert result.channel.name == "Player Creator"
+    assert result.channel.handle == "playercreator"
+    assert result.channel.channel_id == "UCPLAYER123"
 
 
 @pytest.mark.anyio

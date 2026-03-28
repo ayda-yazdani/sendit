@@ -1,3 +1,4 @@
+import json
 import re
 
 import httpx
@@ -64,6 +65,7 @@ class YouTubeShortsScraperService:
         open_graph = extract_open_graph(parser.meta_tags)
         json_ld_documents = parse_json_ld_blocks(parser.json_ld_blocks)
         primary_video = pick_primary_object(json_ld_documents)
+        player_response = self._extract_initial_player_response(response.text)
 
         short_id = self._extract_short_id(str(response.url))
         title = (
@@ -71,17 +73,20 @@ class YouTubeShortsScraperService:
             or parser.meta_tags.get("twitter:title")
             or parser.meta_tags.get("title")
             or pick_string(primary_video, "name")
+            or self._extract_player_title(player_response)
         )
         description = (
             open_graph.get("og:description")
             or parser.meta_tags.get("twitter:description")
             or parser.meta_tags.get("description")
             or pick_string(primary_video, "description")
+            or self._extract_player_description(player_response)
         )
         thumbnail_url = (
             open_graph.get("og:image")
             or parser.meta_tags.get("twitter:image")
             or pick_thumbnail(primary_video)
+            or self._extract_player_thumbnail(player_response)
         )
         video_url = (
             open_graph.get("og:video")
@@ -122,23 +127,26 @@ class YouTubeShortsScraperService:
             video_url=video_url,
             embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
-            channel=self._extract_channel(primary_video),
+            channel=self._extract_channel(primary_video, player_response),
             published_at=pick_string(primary_video, "uploadDate")
             or pick_string(primary_video, "datePublished"),
-            duration=pick_string(primary_video, "duration"),
+            duration=pick_string(primary_video, "duration")
+            or self._extract_player_duration(player_response),
             open_graph=open_graph,
             json_ld=json_ld_documents,
         )
 
     def _extract_channel(
-        self, primary_video: dict[str, object] | None
+        self,
+        primary_video: dict[str, object] | None,
+        player_response: dict[str, object] | None,
     ) -> YouTubeChannel | None:
         if not isinstance(primary_video, dict):
-            return None
+            return self._extract_channel_from_player_response(player_response)
 
         author_payload = primary_video.get("author")
         if not isinstance(author_payload, dict):
-            return None
+            return self._extract_channel_from_player_response(player_response)
 
         channel_url = author_payload.get("url")
         channel_url = channel_url if isinstance(channel_url, str) else None
@@ -150,6 +158,107 @@ class YouTubeShortsScraperService:
             or self._extract_channel_id(channel_url),
             channel_url=channel_url,
         )
+
+    def _extract_initial_player_response(
+        self, html: str
+    ) -> dict[str, object] | None:
+        patterns = (
+            r"ytInitialPlayerResponse\s*=\s*(\{.*?\});",
+            r'var\s+ytInitialPlayerResponse\s*=\s*(\{.*?\});',
+        )
+        for pattern in patterns:
+            match = re.search(pattern, html, re.S)
+            if not match:
+                continue
+            try:
+                payload = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        return None
+
+    def _extract_player_title(
+        self, player_response: dict[str, object] | None
+    ) -> str | None:
+        video_details = self._extract_player_dict(player_response, "videoDetails")
+        return self._extract_dict_string(video_details, "title")
+
+    def _extract_player_description(
+        self, player_response: dict[str, object] | None
+    ) -> str | None:
+        video_details = self._extract_player_dict(player_response, "videoDetails")
+        return self._extract_dict_string(video_details, "shortDescription")
+
+    def _extract_player_thumbnail(
+        self, player_response: dict[str, object] | None
+    ) -> str | None:
+        video_details = self._extract_player_dict(player_response, "videoDetails")
+        if not isinstance(video_details, dict):
+            return None
+        thumbnail = video_details.get("thumbnail")
+        if not isinstance(thumbnail, dict):
+            return None
+        thumbnails = thumbnail.get("thumbnails")
+        if not isinstance(thumbnails, list):
+            return None
+        for item in reversed(thumbnails):
+            if isinstance(item, dict):
+                url = item.get("url")
+                if isinstance(url, str) and url:
+                    return url
+        return None
+
+    def _extract_player_duration(
+        self, player_response: dict[str, object] | None
+    ) -> str | None:
+        video_details = self._extract_player_dict(player_response, "videoDetails")
+        seconds = self._extract_dict_string(video_details, "lengthSeconds")
+        if seconds is None:
+            return None
+        try:
+            return f"PT{int(seconds)}S"
+        except ValueError:
+            return None
+
+    def _extract_channel_from_player_response(
+        self, player_response: dict[str, object] | None
+    ) -> YouTubeChannel | None:
+        video_details = self._extract_player_dict(player_response, "videoDetails")
+        microformat = self._extract_player_dict(player_response, "microformat")
+        player_microformat = self._extract_player_dict(
+            microformat, "playerMicroformatRenderer"
+        )
+
+        name = self._extract_dict_string(video_details, "author")
+        channel_id = self._extract_dict_string(video_details, "channelId")
+        channel_url = self._extract_dict_string(player_microformat, "ownerProfileUrl")
+
+        if name is None and channel_id is None and channel_url is None:
+            return None
+
+        return YouTubeChannel(
+            name=name,
+            handle=self._extract_handle(channel_url),
+            channel_id=channel_id or self._extract_channel_id(channel_url),
+            channel_url=channel_url,
+        )
+
+    def _extract_player_dict(
+        self, payload: dict[str, object] | None, key: str
+    ) -> dict[str, object] | None:
+        if not isinstance(payload, dict):
+            return None
+        value = payload.get(key)
+        return value if isinstance(value, dict) else None
+
+    def _extract_dict_string(
+        self, payload: dict[str, object] | None, key: str
+    ) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        value = payload.get(key)
+        return value if isinstance(value, str) and value else None
 
     def _extract_short_id(self, url: str) -> str | None:
         match = re.search(r"/shorts/([^/?#]+)/?", url)
