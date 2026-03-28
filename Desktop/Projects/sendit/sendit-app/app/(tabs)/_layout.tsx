@@ -1,13 +1,9 @@
 import React from "react";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
 
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
-
-function TabIcon({ icon, color }: { icon: string; color: string }) {
-  return <Text style={{ fontSize: 22, color }}>{icon}</Text>;
-}
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -24,17 +20,20 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Boards",
-          tabBarIcon: ({ color }) => <TabIcon icon="📋" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="th-large" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="user" size={22} color={color} />
+          ),
         }}
       />
-      {/* Hide dynamic routes from tab bar */}
       <Tabs.Screen name="board/[id]" options={{ href: null }} />
       <Tabs.Screen name="suggestion/[id]" options={{ href: null }} />
     </Tabs>
