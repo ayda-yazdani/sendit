@@ -15,9 +15,9 @@ function detectPlatform(url: string): Platform {
   return "other";
 }
 
-// ---- SCRAPING VIA MAX'S PYTHON BACKEND (no API keys needed) ----
+// ---- SCRAPING VIA MAX'S PYTHON BACKEND (no API keys needed, no Claude needed) ----
 
-async function fetchViaScraperBackend(url: string) {
+async function fetchViaScraperBackend(url: string): Promise<any | null> {
   const backendUrl = Deno.env.get("SCRAPER_BACKEND_URL") || "http://localhost:8000";
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
@@ -32,31 +32,18 @@ async function fetchViaScraperBackend(url: string) {
     });
 
     if (!response.ok) {
-      console.warn(`Scraper backend returned ${response.status}, falling back to OG`);
+      console.warn(`Scraper backend returned ${response.status}`);
       return null;
     }
 
-    const data = await response.json();
-    return {
-      title: data.title || null,
-      description: data.description || null,
-      thumbnail_url: data.cover_image_url || null,
-      video_url: data.video_url || null,
-      channel: data.user?.name || data.user?.username || null,
-      creator_username: data.user?.username || null,
-      duration: data.duration || null,
-      post_date: data.post_date || null,
-      media_id: data.media_id || null,
-      platform: data.platform || null,
-      canonical_url: data.canonical_url || null,
-    };
+    return await response.json();
   } catch (err) {
     console.warn("Scraper backend unavailable:", err);
     return null;
   }
 }
 
-// ---- FALLBACK: Open Graph scraping (no backend needed) ----
+// ---- FALLBACK: Direct OG scraping (if Max's backend is down) ----
 
 async function fetchOpenGraphMetadata(url: string) {
   try {
@@ -75,78 +62,67 @@ async function fetchOpenGraphMetadata(url: string) {
     return {
       title: getOg("title") || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || null,
       description: getOg("description") || null,
-      thumbnail_url: getOg("image") || null,
-      channel: getOg("site_name") || null,
+      cover_image_url: getOg("image") || null,
+      user: { name: getOg("site_name") || null, username: null },
     };
   } catch {
-    return { title: null, description: null, thumbnail_url: null, channel: null };
+    return { title: null, description: null, cover_image_url: null, user: null };
   }
 }
 
-// ---- CLAUDE AI EXTRACTION ----
+// ---- MAP SCRAPER RESPONSE TO extraction_data ----
 
-const EXTRACTION_SYSTEM_PROMPT = `You are an AI extraction engine for Sendit, an app where friend groups share short-form video URLs. Your job is to extract structured metadata from video content.
-
-Analyze the provided metadata and produce a JSON object with these fields:
-- venue_name: string | null — specific venue, restaurant, bar, or place mentioned
-- location: string | null — city, neighbourhood, or area mentioned
-- price: string | null — ticket price, cost per person, or price range mentioned
-- date: string | null — specific date of an event (ISO format YYYY-MM-DD if possible)
-- vibe: string | null — 2-5 word description of the overall vibe/aesthetic
-- activity: string | null — what type of activity (e.g., "club night", "dinner", "rooftop bar", "recipe", "comedy show")
-- mood: string | null — emotional register (e.g., "high energy", "chill", "chaotic", "intimate")
-- hashtags: string[] — relevant hashtags from the content
-- booking_url: string | null — any booking or ticket link mentioned
-- creator: string | null — the content creator's handle or channel name
-- audio_track: string | null — name of the background song/audio if identifiable
-- audio_artist: string | null — artist of the audio track if identifiable
-
-Return ONLY valid JSON. No markdown, no explanation. Every field must be present (use null if unknown).`;
-
-async function extractWithClaude(metadata: any, url: string, platform: Platform) {
-  const apiKey = Deno.env.get("CLAUDE_API_KEY");
-  if (!apiKey) throw new Error("CLAUDE_API_KEY not configured");
-
-  const userPrompt = `Extract structured data from this ${platform} video URL.
-
-URL: ${url}
-
-METADATA:
-${JSON.stringify(metadata, null, 2)}
-
-Return the extraction as JSON with keys: venue_name, location, price, date, vibe, activity, mood, hashtags, booking_url, creator, audio_track, audio_artist.`;
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+function mapToExtractionData(scraperData: any, url: string, platform: Platform) {
+  return {
+    title: scraperData.title || null,
+    description: scraperData.description || null,
+    thumbnail_url: scraperData.cover_image_url || null,
+    video_url: scraperData.video_url || null,
+    creator: scraperData.user?.username || scraperData.user?.name || null,
+    duration: scraperData.duration || null,
+    post_date: scraperData.post_date || null,
+    media_id: scraperData.media_id || null,
+    canonical_url: scraperData.canonical_url || scraperData.resolved_url || null,
+    // These fields are populated later by Claude (classification / taste / suggestion steps)
+    venue_name: null,
+    location: null,
+    price: null,
+    date: scraperData.post_date || null,
+    vibe: null,
+    activity: null,
+    mood: null,
+    hashtags: [],
+    booking_url: null,
+    audio_track: null,
+    audio_artist: null,
+    platform_metadata: {
+      channel: scraperData.user?.name || null,
+      username: scraperData.user?.username || null,
+      profile_url: scraperData.user?.profile_url || null,
+      duration: scraperData.duration || null,
+      embed_url: scraperData.embed_url || null,
     },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      temperature: 0.2,
-      system: EXTRACTION_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
-
-  const data = await response.json();
-  const text = data.content[0].text;
-  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  return JSON.parse(cleaned);
+  };
 }
 
-// ---- CLASSIFICATION ----
+// ---- SIMPLE CLASSIFICATION FROM METADATA (no Claude needed) ----
 
-function guessClassification(data: any): string {
-  if (data.date && data.venue_name && data.booking_url) return "real_event";
-  if (data.venue_name && data.location) return "real_venue";
-  if (data.activity?.toLowerCase().includes("recipe") || data.activity?.toLowerCase().includes("cook")) return "recipe_food";
-  if (data.mood?.toLowerCase().includes("funny") || data.vibe?.toLowerCase().includes("meme") || data.vibe?.toLowerCase().includes("brainrot")) return "humour_identity";
+function guessClassification(data: any): string | null {
+  const text = `${data.title || ""} ${data.description || ""}`.toLowerCase();
+
+  // Real event signals: dates, tickets, booking
+  if (/ticket|book now|get tickets|event|tonight|this saturday|this friday/i.test(text)) return "real_event";
+
+  // Real venue signals: specific place names with location language
+  if (/restaurant|bar|cafe|club|rooftop|pub|venue/i.test(text) && /visit|check out|review|best/i.test(text)) return "real_venue";
+
+  // Recipe signals
+  if (/recipe|cook|ingredient|how to make|easy meal|homemade/i.test(text)) return "recipe_food";
+
+  // Humour/identity signals
+  if (/meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political/i.test(text)) return "humour_identity";
+
+  // Default
   return "vibe_inspiration";
 }
 
@@ -188,50 +164,32 @@ Deno.serve(async (req: Request) => {
 
     const platform = detectPlatform(url);
 
-    // Step 1: Try Max's scraper backend first (no API keys needed)
-    let rawMetadata = await fetchViaScraperBackend(url);
+    // Step 1: Try Max's scraper backend (no API keys, no Claude)
+    let scraperData = await fetchViaScraperBackend(url);
 
-    // Step 2: Fall back to direct OG scraping if backend unavailable
-    if (!rawMetadata) {
-      rawMetadata = await fetchOpenGraphMetadata(url);
+    // Step 2: Fallback to OG scraping
+    if (!scraperData) {
+      scraperData = await fetchOpenGraphMetadata(url);
     }
 
-    rawMetadata.source_platform = platform;
-    rawMetadata.source_url = url;
+    // Step 3: Map to extraction_data format
+    const extractionData = mapToExtractionData(scraperData, url, platform);
 
-    // Step 3: Send to Claude for structured extraction
-    let extractionData: any;
-    try {
-      extractionData = await extractWithClaude(rawMetadata, url, platform);
-    } catch {
-      // Retry once
-      try {
-        await new Promise((r) => setTimeout(r, 2000));
-        extractionData = await extractWithClaude(rawMetadata, url, platform);
-      } catch {
-        extractionData = { error: "extraction_failed", raw_url: url };
-      }
-    }
+    // Step 4: Simple classification from title/description (no Claude)
+    const classification = guessClassification(extractionData);
 
-    // Supplement with raw metadata
-    if (rawMetadata.thumbnail_url) extractionData.thumbnail_url = rawMetadata.thumbnail_url;
-    if (rawMetadata.title && !extractionData.title) extractionData.title = rawMetadata.title;
-    if (rawMetadata.creator_username && !extractionData.creator) extractionData.creator = rawMetadata.creator_username;
-    extractionData.platform_metadata = {
-      channel: rawMetadata.channel || null,
-      duration: rawMetadata.duration || null,
-      media_id: rawMetadata.media_id || null,
-      post_date: rawMetadata.post_date || null,
-    };
-
-    // Update reel row
-    await supabaseAdmin
+    // Step 5: Update reel row
+    const { error: updateError } = await supabaseAdmin
       .from("reels")
       .update({
         extraction_data: extractionData,
-        classification: extractionData.activity ? guessClassification(extractionData) : null,
+        classification,
       })
       .eq("id", reel_id);
+
+    if (updateError) {
+      console.error("Failed to update reel:", updateError);
+    }
 
     return new Response(
       JSON.stringify(extractionData),
