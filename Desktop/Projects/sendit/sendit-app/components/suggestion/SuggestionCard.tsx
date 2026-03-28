@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Linking, ActivityIndicator } from "react-native";
+import { router } from "expo-router";
 import { Suggestion, generateSuggestion, archiveSuggestion } from "@/lib/ai/suggestion-engine";
 import { Button } from "@/components/shared/Button";
 
@@ -73,14 +74,19 @@ export function SuggestionCard({ suggestion, boardId, onNewSuggestion }: Suggest
       )}
 
       {/* Actions */}
+      <Button
+        title="View Plan & Vote"
+        onPress={() => router.push(`/suggestion/${suggestion.id}`)}
+        style={{ marginBottom: 8 }}
+      />
       <View style={styles.actions}>
         {s.booking_url ? (
-          <Button title="Book Now" onPress={handleBooking} style={{ flex: 1, marginRight: 8 }} />
+          <Button title="Book Now" onPress={handleBooking} variant="secondary" style={{ flex: 1, marginRight: 8 }} />
         ) : null}
         <Button
           title={isRegenerating ? "..." : "Different Idea"}
           onPress={handleRegenerate}
-          variant="secondary"
+          variant="ghost"
           loading={isRegenerating}
           style={{ flex: 1 }}
         />
