@@ -1,14 +1,15 @@
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import AliasChoices, AnyHttpUrl, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "sendit-backend"
     app_env: str = "development"
     api_v1_prefix: str = "/api/v1"
-    backend_cors_origins: list[str] = Field(
+    backend_cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",

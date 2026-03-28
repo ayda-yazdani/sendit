@@ -120,3 +120,34 @@ async def test_get_current_user_uses_access_token_for_supabase_lookup() -> None:
     assert captured_request.headers["Authorization"] == "Bearer access-token"
     assert result.user.id == "user-123"
     assert result.user.email == "user@example.com"
+
+
+@pytest.mark.anyio
+async def test_check_configuration_uses_publishable_key_to_read_settings() -> None:
+    captured_request: httpx.Request | None = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "disable_signup": False,
+                "external": {"email": True, "google": False},
+            },
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = SupabaseAuthService(http_client=client, settings=build_settings())
+        result = await service.check_configuration()
+
+    assert captured_request is not None
+    assert str(captured_request.url) == "https://example.supabase.co/auth/v1/settings"
+    assert captured_request.headers["apikey"] == "test-key"
+    assert captured_request.headers["Authorization"] == "Bearer test-key"
+    assert result.ok is True
+    assert str(result.supabase_url) == "https://example.supabase.co/"
+    assert str(result.auth_url) == "https://example.supabase.co/auth/v1"
+    assert result.disable_signup is False
+    assert result.external == {"email": True, "google": False}

@@ -15,6 +15,7 @@ from app.schemas.auth import (
     RefreshSessionRequest,
     SignInRequest,
     SignUpRequest,
+    SupabaseConfigCheckResponse,
     SupabaseSession,
     SupabaseUser,
     UserResponse,
@@ -80,6 +81,15 @@ class StubSupabaseAuthService:
 
     async def sign_out(self, access_token: str) -> None:
         self.logout_token = access_token
+
+    async def check_configuration(self) -> SupabaseConfigCheckResponse:
+        return SupabaseConfigCheckResponse(
+            supabase_url="https://example.supabase.co",
+            auth_url="https://example.supabase.co/auth/v1",
+            disable_signup=False,
+            external={"email": True, "google": False},
+            message="Supabase Auth is reachable with the configured publishable key.",
+        )
 
 
 class StubInstagramReelScraperService:
@@ -208,6 +218,8 @@ def test_tester_javascript_is_served(client: TestClient) -> None:
     assert response.status_code == 200
     assert 'createRoot(document.getElementById("root"))' in response.text
     assert "sendit-tester-token" in response.text
+    assert "/api/v1/auth/signup" in response.text
+    assert "/api/v1/auth/config-check" in response.text
     assert "/api/v1/media/scrape" in response.text
 
 
@@ -237,6 +249,21 @@ def test_signup_returns_created_auth_payload(
     assert stub_auth_service.signup_payload.email == "user@example.com"
     assert stub_auth_service.signup_payload.metadata == {"name": "Max"}
     assert response.json()["session"]["access_token"] == "access-token"
+
+
+def test_config_check_returns_supabase_status(client: TestClient) -> None:
+    response = client.get("/api/v1/auth/config-check")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "supabase_url": "https://example.supabase.co/",
+        "auth_url": "https://example.supabase.co/auth/v1",
+        "key_present": True,
+        "disable_signup": False,
+        "external": {"email": True, "google": False},
+        "message": "Supabase Auth is reachable with the configured publishable key.",
+    }
 
 
 def test_login_returns_auth_payload(

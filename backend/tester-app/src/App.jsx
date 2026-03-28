@@ -30,6 +30,27 @@ function emptySummary() {
   };
 }
 
+function emptyConfigSummary() {
+  return {
+    supabaseUrl: "Not checked yet.",
+    authUrl: "Not checked yet.",
+    signupMode: "Not checked yet.",
+    providers: "Not checked yet.",
+  };
+}
+
+function formatProviders(external) {
+  if (!external || typeof external !== "object") {
+    return "No provider data returned.";
+  }
+
+  const enabled = Object.entries(external)
+    .filter(([, isEnabled]) => Boolean(isEnabled))
+    .map(([provider]) => provider);
+
+  return enabled.length > 0 ? enabled.join(", ") : "No enabled providers returned.";
+}
+
 async function parseResponse(response) {
   const text = await response.text();
   try {
@@ -40,20 +61,29 @@ async function parseResponse(response) {
 }
 
 export default function App() {
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
   const [url, setUrl] = useState("");
+  const [configStatus, setConfigStatus] = useState({
+    message: "Checking Supabase configuration...",
+    tone: "",
+  });
   const [authStatus, setAuthStatus] = useState({ message: "", tone: "" });
   const [fetchStatus, setFetchStatus] = useState({ message: "", tone: "" });
   const [responseText, setResponseText] = useState("{}");
   const [summary, setSummary] = useState(emptySummary());
+  const [configSummary, setConfigSummary] = useState(emptyConfigSummary());
+  const [isCheckingConfig, setIsCheckingConfig] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     setToken(localStorage.getItem(storageKey) || "");
+    void checkSupabaseConfig({ updateResponse: false });
   }, []);
 
   function saveToken(nextToken) {
@@ -76,6 +106,125 @@ export default function App() {
       postDate: payload.post_date || "No post date returned.",
       userText: prettyUser(payload.user),
     });
+  }
+
+  function applyConfigSummary(payload) {
+    setConfigSummary({
+      supabaseUrl: payload.supabase_url || "Not returned.",
+      authUrl: payload.auth_url || "Not returned.",
+      signupMode:
+        payload.disable_signup === true
+          ? "Disabled"
+          : payload.disable_signup === false
+            ? "Enabled"
+            : "Unknown",
+      providers: formatProviders(payload.external),
+    });
+  }
+
+  async function checkSupabaseConfig(options = {}) {
+    const { updateResponse = true } = options;
+
+    setIsCheckingConfig(true);
+    setConfigStatus({ message: "Checking Supabase configuration...", tone: "" });
+
+    try {
+      const response = await fetch("/api/v1/auth/config-check");
+      const payload = await parseResponse(response);
+
+      if (updateResponse) {
+        setResponseText(JSON.stringify(payload, null, 2));
+      }
+
+      if (!response.ok) {
+        setConfigStatus({
+          message: payload.detail || "Supabase config check failed.",
+          tone: "error",
+        });
+        return;
+      }
+
+      applyConfigSummary(payload);
+      setConfigStatus({
+        message:
+          payload.message || "Supabase Auth is reachable with the configured key.",
+        tone: "success",
+      });
+    } catch (error) {
+      setConfigStatus({
+        message: `Supabase config check failed: ${error.message || String(error)}`,
+        tone: "error",
+      });
+      if (updateResponse) {
+        setResponseText(
+          JSON.stringify(
+            { detail: `Supabase config check failed: ${error.message || String(error)}` },
+            null,
+            2,
+          ),
+        );
+      }
+    } finally {
+      setIsCheckingConfig(false);
+    }
+  }
+
+  async function register() {
+    if (!email.trim() || !password) {
+      setAuthStatus({ message: "Enter both email and password.", tone: "error" });
+      return;
+    }
+
+    setIsRegistering(true);
+    setAuthStatus({ message: "Creating account...", tone: "" });
+
+    try {
+      const requestBody = {
+        email: email.trim(),
+        password,
+      };
+
+      if (displayName.trim()) {
+        requestBody.metadata = { name: displayName.trim() };
+      }
+
+      const response = await fetch("/api/v1/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      const payload = await parseResponse(response);
+      setResponseText(JSON.stringify(payload, null, 2));
+
+      if (!response.ok) {
+        setAuthStatus({
+          message: payload.detail || payload.message || "Registration failed.",
+          tone: "error",
+        });
+        return;
+      }
+
+      if (payload.session?.access_token) {
+        saveToken(payload.session.access_token);
+        setAuthStatus({ message: "Registered and signed in.", tone: "success" });
+        return;
+      }
+
+      setAuthStatus({
+        message:
+          payload.message ||
+          "Registered successfully. Check your email if confirmation is enabled.",
+        tone: "success",
+      });
+    } catch (error) {
+      setAuthStatus({
+        message: `Registration request failed: ${error.message || String(error)}`,
+        tone: "error",
+      });
+    } finally {
+      setIsRegistering(false);
+    }
   }
 
   async function login() {
@@ -219,9 +368,10 @@ export default function App() {
         <div className="dev-badge">DEV</div>
         <h1>Sendit scrape tester</h1>
         <p className="subtitle">
-          Paste a social video URL, hit your FastAPI backend, and inspect the returned
-          cover image, description, post date, and user details. This React page is
-          meant for local development only.
+          Check that the configured Supabase project key works, register or sign in,
+          then paste a supported social video URL and inspect the returned cover image,
+          description, post date, and user details. This React page is meant for local
+          development only.
         </p>
       </section>
 
@@ -229,10 +379,54 @@ export default function App() {
         <section className="panel stack">
           <div className="panel-header">
             <h2>Session</h2>
-            <p>Authenticate once, then reuse your token.</p>
+            <p>Verify Supabase first, then register or sign in.</p>
+          </div>
+
+          <div className="meta-grid">
+            <article className="meta-card">
+              <h3>Project URL</h3>
+              <p>{configSummary.supabaseUrl}</p>
+            </article>
+            <article className="meta-card">
+              <h3>Auth URL</h3>
+              <p>{configSummary.authUrl}</p>
+            </article>
+            <article className="meta-card">
+              <h3>Signups</h3>
+              <p>{configSummary.signupMode}</p>
+            </article>
+            <article className="meta-card">
+              <h3>Providers</h3>
+              <p>{configSummary.providers}</p>
+            </article>
+          </div>
+
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={isCheckingConfig}
+              onClick={() => checkSupabaseConfig()}
+            >
+              {isCheckingConfig ? "Checking..." : "Check Supabase"}
+            </button>
+          </div>
+
+          <div className="status" data-tone={configStatus.tone}>
+            {configStatus.message}
           </div>
 
           <div className="row">
+            <div>
+              <label htmlFor="display-name">Display Name</label>
+              <input
+                id="display-name"
+                type="text"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Optional name"
+              />
+            </div>
             <div>
               <label htmlFor="email">Email</label>
               <input
@@ -243,20 +437,29 @@ export default function App() {
                 placeholder="you@example.com"
               />
             </div>
-            <div>
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Your password"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 8 characters"
+            />
           </div>
 
           <div className="actions">
-            <button type="button" disabled={isLoggingIn} onClick={login}>
+            <button type="button" disabled={isRegistering} onClick={register}>
+              {isRegistering ? "Registering..." : "Register"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={isLoggingIn}
+              onClick={login}
+            >
               {isLoggingIn ? "Signing In..." : "Sign In"}
             </button>
             <button

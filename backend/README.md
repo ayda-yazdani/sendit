@@ -42,6 +42,7 @@ npm run build
 ## Endpoints
 
 - `GET /health`
+- `GET /api/v1/auth/config-check`
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
@@ -63,6 +64,7 @@ uv run pytest
 ## Notes
 
 - `me` and `logout` expect `Authorization: Bearer <access_token>`.
+- `config-check` confirms the configured `SUPABASE_URL` and publishable key can reach Supabase Auth settings.
 - The scrape endpoints also expect `Authorization: Bearer <access_token>` and only allow verified Supabase users.
 - `POST /api/v1/media/scrape` is the simplest entrypoint: pass any supported URL and the backend auto-detects Instagram Reels, TikTok videos, or YouTube Shorts.
 - `POST /api/v1/instagram/reels/scrape` accepts a public `https://www.instagram.com/reel/...` URL and returns structured Open Graph and JSON-LD metadata.

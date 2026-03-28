@@ -9,6 +9,7 @@ from app.schemas.auth import (
     RefreshSessionRequest,
     SignInRequest,
     SignUpRequest,
+    SupabaseConfigCheckResponse,
     SupabaseSession,
     SupabaseUser,
     UserResponse,
@@ -112,6 +113,34 @@ class SupabaseAuthService:
             path="/logout",
             access_token=access_token,
             expected_status_codes={status.HTTP_204_NO_CONTENT},
+        )
+
+    async def check_configuration(self) -> SupabaseConfigCheckResponse:
+        response_data = await self._request(
+            method="GET",
+            path="/settings",
+            authenticated=False,
+        )
+        external_settings = response_data.get("external")
+        external = (
+            {
+                str(provider): bool(enabled)
+                for provider, enabled in external_settings.items()
+            }
+            if isinstance(external_settings, dict)
+            else {}
+        )
+        disable_signup = response_data.get("disable_signup")
+
+        return SupabaseConfigCheckResponse(
+            supabase_url=self._settings.supabase_url,
+            auth_url=self._settings.supabase_auth_url,
+            key_present=bool(self._settings.supabase_key),
+            disable_signup=(
+                disable_signup if isinstance(disable_signup, bool) else None
+            ),
+            external=external,
+            message="Supabase Auth is reachable with the configured publishable key.",
         )
 
     async def _request(

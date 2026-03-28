@@ -6,11 +6,19 @@ from app.schemas.auth import (
     RefreshSessionRequest,
     SignInRequest,
     SignUpRequest,
+    SupabaseConfigCheckResponse,
     UserResponse,
 )
 from app.services.supabase_auth import SupabaseAuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/config-check", response_model=SupabaseConfigCheckResponse)
+async def check_supabase_config(
+    auth_service: SupabaseAuthService = Depends(get_supabase_auth_service),
+) -> SupabaseConfigCheckResponse:
+    return await auth_service.check_configuration()
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)

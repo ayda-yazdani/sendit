@@ -2,7 +2,7 @@ from typing import Any
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field
 
 
 class SupabaseModel(BaseModel):
@@ -87,3 +87,13 @@ class AuthResponse(BaseModel):
 
 class UserResponse(BaseModel):
     user: SupabaseUser
+
+
+class SupabaseConfigCheckResponse(BaseModel):
+    ok: bool = True
+    supabase_url: AnyHttpUrl
+    auth_url: AnyHttpUrl
+    key_present: bool = True
+    disable_signup: bool | None = None
+    external: dict[str, bool] = Field(default_factory=dict)
+    message: str
