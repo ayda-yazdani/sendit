@@ -9,6 +9,7 @@ import { Suggestion } from "@/lib/ai/suggestion-engine";
 import { SuggestionCard } from "@/components/suggestion/SuggestionCard";
 import { VoteButtons } from "@/components/commitment/VoteButtons";
 import { CommitmentTally } from "@/components/commitment/CommitmentTally";
+import { ReceiptWall } from "@/components/commitment/ReceiptWall";
 
 type VoteStatus = "in" | "maybe" | "out";
 
@@ -163,6 +164,16 @@ export default function SuggestionScreen() {
         <CommitmentTally
           commitments={commitments}
           members={activeBoardMembers}
+        />
+      </View>
+
+      {/* Receipt Wall */}
+      <View style={styles.section}>
+        <ReceiptWall
+          commitments={commitments}
+          members={activeBoardMembers}
+          currentMemberId={currentMemberId}
+          suggestionId={id!}
         />
       </View>
 

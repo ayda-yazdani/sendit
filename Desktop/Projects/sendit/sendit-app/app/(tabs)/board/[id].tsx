@@ -7,10 +7,13 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRealtime } from "@/lib/hooks/use-realtime";
 import { MemberList } from "@/components/board/MemberList";
 import { UrlInput } from "@/components/board/UrlInput";
-import { PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
 import { supabase } from "@/lib/supabase";
+import { ExtractionCard } from "@/components/extraction/ExtractionCard";
 import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
 import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
+import { TasteProfileSection } from "@/components/board/TasteProfile";
+import { IdentityCard } from "@/components/board/IdentityCard";
+import { useTasteStore } from "@/lib/stores/taste-store";
 
 interface Reel {
   id: string;
@@ -30,6 +33,7 @@ export default function BoardDetailScreen() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const { profile: tasteProfile, isLoading: tasteLoading, fetchProfile, regenerateProfile } = useTasteStore();
 
   // Load board if navigated directly
   useEffect(() => {
@@ -64,6 +68,9 @@ export default function BoardDetailScreen() {
         .order("created_at", { ascending: false });
       if (reelData) setReels(reelData);
 
+      // Fetch taste profile
+      await fetchProfile(id);
+
       // Fetch active suggestion
       const activeSuggestion = await getActiveSuggestion(id);
       if (activeSuggestion) setSuggestion(activeSuggestion);
@@ -79,6 +86,13 @@ export default function BoardDetailScreen() {
     filter: `board_id=eq.${id}`,
     onInsert: () => fetchBoardMembers(id!),
     onDelete: () => fetchBoardMembers(id!),
+  });
+
+  // Real-time taste profile updates
+  useRealtime({
+    table: "taste_profiles",
+    filter: `board_id=eq.${id}`,
+    onChange: () => fetchProfile(id!),
   });
 
   // Real-time reel updates
@@ -146,37 +160,16 @@ export default function BoardDetailScreen() {
               <Text style={styles.placeholderHint}>Paste a URL below to share content</Text>
             </View>
           ) : (
-            reels.map((reel) => {
-              const platform = PLATFORM_DISPLAY[reel.platform as keyof typeof PLATFORM_DISPLAY] || PLATFORM_DISPLAY.other;
-              return (
-                <View key={reel.id} style={styles.reelCard}>
-                  <View style={styles.reelHeader}>
-                    <Text style={styles.reelPlatform}>{platform.emoji} {platform.label}</Text>
-                    {reel.classification && (
-                      <View style={styles.classificationBadge}>
-                        <Text style={styles.classificationText}>{reel.classification.replace("_", " ")}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.reelUrl} numberOfLines={1}>{reel.url}</Text>
-                  {reel.extraction_data ? (
-                    <View style={styles.extractionPreview}>
-                      {reel.extraction_data.venue_name && (
-                        <Text style={styles.extractionVenue}>📍 {reel.extraction_data.venue_name}</Text>
-                      )}
-                      {reel.extraction_data.vibe && (
-                        <Text style={styles.extractionVibe}>{reel.extraction_data.vibe}</Text>
-                      )}
-                      {reel.extraction_data.price && (
-                        <Text style={styles.extractionPrice}>💰 {reel.extraction_data.price}</Text>
-                      )}
-                    </View>
-                  ) : (
-                    <Text style={styles.extractionPending}>⏳ Analyzing...</Text>
-                  )}
-                </View>
-              );
-            })
+            reels.map((reel) => (
+              <ExtractionCard
+                key={reel.id}
+                url={reel.url}
+                platform={reel.platform}
+                classification={reel.classification}
+                extractionData={reel.extraction_data}
+                createdAt={reel.created_at}
+              />
+            ))
           )}
         </View>
 
@@ -189,6 +182,18 @@ export default function BoardDetailScreen() {
             <MemberList members={activeBoardMembers} />
           )}
         </View>
+
+        {/* Identity Card */}
+        {tasteProfile?.identity_label && tasteProfile?.profile_data && activeBoard && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Group Identity</Text>
+            <IdentityCard
+              boardName={activeBoard.name}
+              identityLabel={tasteProfile.identity_label}
+              profileData={tasteProfile.profile_data}
+            />
+          </View>
+        )}
 
         {/* Suggestion */}
         <View style={styles.section}>
@@ -208,13 +213,16 @@ export default function BoardDetailScreen() {
           )}
         </View>
 
-        {/* Taste Profile Placeholder */}
+        {/* Taste Profile */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Taste Profile</Text>
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderIcon}>🌡</Text>
-            <Text style={styles.placeholderText}>Group taste builds after 3+ reels</Text>
-          </View>
+          <TasteProfileSection
+            profileData={tasteProfile?.profile_data || null}
+            identityLabel={tasteProfile?.identity_label || null}
+            isLoading={tasteLoading}
+            reelCount={reels.length}
+            onGenerate={() => regenerateProfile(id!)}
+          />
         </View>
 
         <View style={{ height: 100 }} />
@@ -246,15 +254,4 @@ const styles = StyleSheet.create({
   placeholderIcon: { fontSize: 32, marginBottom: 8 },
   placeholderText: { fontSize: 14, color: "#999", fontWeight: "500" },
   placeholderHint: { fontSize: 12, color: "#bbb", marginTop: 4 },
-  reelCard: { backgroundColor: "#f9f7f5", borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: "#eee" },
-  reelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  reelPlatform: { fontSize: 13, fontWeight: "600", color: "#333" },
-  classificationBadge: { backgroundColor: "#d4562a15", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  classificationText: { fontSize: 11, color: "#d4562a", fontWeight: "600", textTransform: "capitalize" },
-  reelUrl: { fontSize: 12, color: "#999", marginBottom: 8 },
-  extractionPreview: { gap: 4 },
-  extractionVenue: { fontSize: 14, fontWeight: "600", color: "#333" },
-  extractionVibe: { fontSize: 13, color: "#666" },
-  extractionPrice: { fontSize: 13, color: "#1a9e76", fontWeight: "500" },
-  extractionPending: { fontSize: 13, color: "#c49a2e" },
 });
