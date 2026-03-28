@@ -15,42 +15,48 @@ function detectPlatform(url: string): Platform {
   return "other";
 }
 
-function extractYouTubeVideoId(url: string): string | null {
-  const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
-  if (shortsMatch) return shortsMatch[1];
-  const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-  if (shortUrlMatch) return shortUrlMatch[1];
-  const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
-  if (watchMatch) return watchMatch[1];
-  return null;
+// ---- SCRAPING VIA MAX'S PYTHON BACKEND (no API keys needed) ----
+
+async function fetchViaScraperBackend(url: string) {
+  const backendUrl = Deno.env.get("SCRAPER_BACKEND_URL") || "http://localhost:8000";
+  const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+  try {
+    const response = await fetch(`${backendUrl}/api/v1/media/scrape`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Scraper backend returned ${response.status}, falling back to OG`);
+      return null;
+    }
+
+    const data = await response.json();
+    return {
+      title: data.title || null,
+      description: data.description || null,
+      thumbnail_url: data.cover_image_url || null,
+      video_url: data.video_url || null,
+      channel: data.user?.name || data.user?.username || null,
+      creator_username: data.user?.username || null,
+      duration: data.duration || null,
+      post_date: data.post_date || null,
+      media_id: data.media_id || null,
+      platform: data.platform || null,
+      canonical_url: data.canonical_url || null,
+    };
+  } catch (err) {
+    console.warn("Scraper backend unavailable:", err);
+    return null;
+  }
 }
 
-async function fetchYouTubeMetadata(url: string) {
-  const videoId = extractYouTubeVideoId(url);
-  if (!videoId) throw new Error("Could not extract YouTube video ID");
-
-  const apiKey = Deno.env.get("YOUTUBE_API_KEY");
-  if (!apiKey) throw new Error("YOUTUBE_API_KEY not configured");
-
-  const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${apiKey}`;
-  const response = await fetch(apiUrl);
-  if (!response.ok) throw new Error(`YouTube API error: ${response.status}`);
-
-  const data = await response.json();
-  if (!data.items?.length) throw new Error("Video not found on YouTube");
-
-  const video = data.items[0];
-  return {
-    title: video.snippet.title,
-    description: video.snippet.description,
-    tags: video.snippet.tags || [],
-    channel: video.snippet.channelTitle,
-    published_at: video.snippet.publishedAt,
-    thumbnail_url: video.snippet.thumbnails?.high?.url || video.snippet.thumbnails?.default?.url,
-    duration: video.contentDetails?.duration,
-    view_count: video.statistics?.viewCount,
-  };
-}
+// ---- FALLBACK: Open Graph scraping (no backend needed) ----
 
 async function fetchOpenGraphMetadata(url: string) {
   try {
@@ -69,13 +75,15 @@ async function fetchOpenGraphMetadata(url: string) {
     return {
       title: getOg("title") || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || null,
       description: getOg("description") || null,
-      image: getOg("image") || null,
-      site_name: getOg("site_name") || null,
+      thumbnail_url: getOg("image") || null,
+      channel: getOg("site_name") || null,
     };
   } catch {
-    return { title: null, description: null, image: null, site_name: null };
+    return { title: null, description: null, thumbnail_url: null, channel: null };
   }
 }
+
+// ---- CLAUDE AI EXTRACTION ----
 
 const EXTRACTION_SYSTEM_PROMPT = `You are an AI extraction engine for Sendit, an app where friend groups share short-form video URLs. Your job is to extract structured metadata from video content.
 
@@ -128,11 +136,21 @@ Return the extraction as JSON with keys: venue_name, location, price, date, vibe
 
   const data = await response.json();
   const text = data.content[0].text;
-
-  // Strip markdown fences if present
   const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
   return JSON.parse(cleaned);
 }
+
+// ---- CLASSIFICATION ----
+
+function guessClassification(data: any): string {
+  if (data.date && data.venue_name && data.booking_url) return "real_event";
+  if (data.venue_name && data.location) return "real_venue";
+  if (data.activity?.toLowerCase().includes("recipe") || data.activity?.toLowerCase().includes("cook")) return "recipe_food";
+  if (data.mood?.toLowerCase().includes("funny") || data.vibe?.toLowerCase().includes("meme") || data.vibe?.toLowerCase().includes("brainrot")) return "humour_identity";
+  return "vibe_inspiration";
+}
+
+// ---- MAIN HANDLER ----
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -168,25 +186,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Detect platform and fetch metadata
     const platform = detectPlatform(url);
-    let rawMetadata: any;
 
-    if (platform === "youtube") {
-      rawMetadata = await fetchYouTubeMetadata(url);
-    } else {
+    // Step 1: Try Max's scraper backend first (no API keys needed)
+    let rawMetadata = await fetchViaScraperBackend(url);
+
+    // Step 2: Fall back to direct OG scraping if backend unavailable
+    if (!rawMetadata) {
       rawMetadata = await fetchOpenGraphMetadata(url);
     }
 
-    // Add platform context
     rawMetadata.source_platform = platform;
     rawMetadata.source_url = url;
 
-    // Extract with Claude
+    // Step 3: Send to Claude for structured extraction
     let extractionData: any;
     try {
       extractionData = await extractWithClaude(rawMetadata, url, platform);
-    } catch (claudeError) {
+    } catch {
       // Retry once
       try {
         await new Promise((r) => setTimeout(r, 2000));
@@ -196,27 +213,25 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Add metadata that Claude might miss
+    // Supplement with raw metadata
     if (rawMetadata.thumbnail_url) extractionData.thumbnail_url = rawMetadata.thumbnail_url;
     if (rawMetadata.title && !extractionData.title) extractionData.title = rawMetadata.title;
+    if (rawMetadata.creator_username && !extractionData.creator) extractionData.creator = rawMetadata.creator_username;
     extractionData.platform_metadata = {
-      channel: rawMetadata.channel || rawMetadata.site_name || null,
+      channel: rawMetadata.channel || null,
       duration: rawMetadata.duration || null,
-      view_count: rawMetadata.view_count || null,
+      media_id: rawMetadata.media_id || null,
+      post_date: rawMetadata.post_date || null,
     };
 
     // Update reel row
-    const { error: updateError } = await supabaseAdmin
+    await supabaseAdmin
       .from("reels")
       .update({
         extraction_data: extractionData,
         classification: extractionData.activity ? guessClassification(extractionData) : null,
       })
       .eq("id", reel_id);
-
-    if (updateError) {
-      console.error("Failed to update reel:", updateError);
-    }
 
     return new Response(
       JSON.stringify(extractionData),
@@ -230,12 +245,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
-// Quick classification based on extraction data (refined in Story 2.4)
-function guessClassification(data: any): string {
-  if (data.date && data.venue_name && data.booking_url) return "real_event";
-  if (data.venue_name && data.location) return "real_venue";
-  if (data.activity?.toLowerCase().includes("recipe") || data.activity?.toLowerCase().includes("cook")) return "recipe_food";
-  if (data.mood?.toLowerCase().includes("funny") || data.vibe?.toLowerCase().includes("meme") || data.vibe?.toLowerCase().includes("brainrot")) return "humour_identity";
-  return "vibe_inspiration";
-}
