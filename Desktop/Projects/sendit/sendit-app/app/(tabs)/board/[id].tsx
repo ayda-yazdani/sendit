@@ -11,6 +11,8 @@ import { supabase } from "@/lib/supabase";
 import { ExtractionCard } from "@/components/extraction/ExtractionCard";
 import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
 import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
+import { TasteProfileSection } from "@/components/board/TasteProfile";
+import { useTasteStore } from "@/lib/stores/taste-store";
 
 interface Reel {
   id: string;
@@ -30,6 +32,7 @@ export default function BoardDetailScreen() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const { profile: tasteProfile, isLoading: tasteLoading, fetchProfile, regenerateProfile } = useTasteStore();
 
   // Load board if navigated directly
   useEffect(() => {
@@ -64,6 +67,9 @@ export default function BoardDetailScreen() {
         .order("created_at", { ascending: false });
       if (reelData) setReels(reelData);
 
+      // Fetch taste profile
+      await fetchProfile(id);
+
       // Fetch active suggestion
       const activeSuggestion = await getActiveSuggestion(id);
       if (activeSuggestion) setSuggestion(activeSuggestion);
@@ -79,6 +85,13 @@ export default function BoardDetailScreen() {
     filter: `board_id=eq.${id}`,
     onInsert: () => fetchBoardMembers(id!),
     onDelete: () => fetchBoardMembers(id!),
+  });
+
+  // Real-time taste profile updates
+  useRealtime({
+    table: "taste_profiles",
+    filter: `board_id=eq.${id}`,
+    onChange: () => fetchProfile(id!),
   });
 
   // Real-time reel updates
@@ -187,13 +200,16 @@ export default function BoardDetailScreen() {
           )}
         </View>
 
-        {/* Taste Profile Placeholder */}
+        {/* Taste Profile */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Taste Profile</Text>
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderIcon}>🌡</Text>
-            <Text style={styles.placeholderText}>Group taste builds after 3+ reels</Text>
-          </View>
+          <TasteProfileSection
+            profileData={tasteProfile?.profile_data || null}
+            identityLabel={tasteProfile?.identity_label || null}
+            isLoading={tasteLoading}
+            reelCount={reels.length}
+            onGenerate={() => regenerateProfile(id!)}
+          />
         </View>
 
         <View style={{ height: 100 }} />
