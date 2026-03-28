@@ -114,6 +114,11 @@ async function loadRuntimeInfo() {
   return parseResponse(response);
 }
 
+async function loadGeminiConfig() {
+  const response = await fetch(apiUrl("/api/v1/tester/gemini-config"));
+  return parseResponse(response);
+}
+
 export default function App() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -135,10 +140,19 @@ export default function App() {
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState("");
+  const [geminiPrompt, setGeminiPrompt] = useState("");
+  const [geminiStatus, setGeminiStatus] = useState({ message: "", tone: "" });
+  const [geminiResponse, setGeminiResponse] = useState("Nothing returned yet.");
+  const [isPromptingGemini, setIsPromptingGemini] = useState(false);
+  const [geminiImages, setGeminiImages] = useState([]);
+  const [geminiSystemPrompt, setGeminiSystemPrompt] = useState(
+    "Loading Gemini system prompt...",
+  );
 
   useEffect(() => {
     setToken(localStorage.getItem(storageKey) || "");
     void fetchRuntimeInfo();
+    void fetchGeminiConfig();
     void checkSupabaseConfig({ updateResponse: false });
   }, []);
 
@@ -211,6 +225,48 @@ export default function App() {
         keyPresent: "Unknown",
       }));
     }
+  }
+
+  async function fetchGeminiConfig() {
+    try {
+      const payload = await loadGeminiConfig();
+      setGeminiSystemPrompt(payload.system_prompt || "No system prompt configured.");
+    } catch (error) {
+      setGeminiSystemPrompt(
+        `Gemini system prompt failed to load: ${error.message || String(error)}`,
+      );
+    }
+  }
+
+  function buildGeminiRequestPayload() {
+    const parts = [];
+
+    if (geminiPrompt.trim()) {
+      parts.push({ text: geminiPrompt.trim() });
+    }
+
+    for (const image of geminiImages) {
+      const [header, data] = image.dataUrl.split(",", 2);
+      const mimeType = header?.match(/^data:(.*?);base64$/)?.[1] || "image/jpeg";
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: data || "",
+        },
+      });
+    }
+
+    const payload = {
+      contents: [{ role: "user", parts }],
+    };
+
+    if (geminiSystemPrompt && geminiSystemPrompt !== "No system prompt configured.") {
+      payload.system_instruction = {
+        parts: [{ text: geminiSystemPrompt }],
+      };
+    }
+
+    return payload;
   }
 
   async function checkSupabaseConfig(options = {}) {
@@ -453,6 +509,80 @@ export default function App() {
     }
   }
 
+  async function promptGemini() {
+    if (!geminiPrompt.trim()) {
+      setGeminiStatus({ message: "Enter a prompt first.", tone: "error" });
+      return;
+    }
+
+    setIsPromptingGemini(true);
+    setGeminiStatus({ message: "Prompting Gemini...", tone: "" });
+
+    try {
+      const response = await fetch(apiUrl("/api/v1/tester/gemini"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: geminiPrompt.trim(),
+          image_data_urls: geminiImages.map((image) => image.dataUrl),
+        }),
+      });
+
+      const payload = await parseResponse(response);
+      setResponseText(JSON.stringify(payload, null, 2));
+
+      if (!response.ok) {
+        setGeminiResponse("No response returned.");
+        setGeminiStatus({
+          message: payload.detail || "Gemini request failed.",
+          tone: "error",
+        });
+        return;
+      }
+
+      setGeminiResponse(payload.text || "Gemini returned no text.");
+      setGeminiStatus({
+        message: `Gemini responded with ${payload.model}.`,
+        tone: "success",
+      });
+    } catch (error) {
+      setGeminiResponse("No response returned.");
+      setGeminiStatus({
+        message: `Gemini request failed: ${error.message || String(error)}`,
+        tone: "error",
+      });
+    } finally {
+      setIsPromptingGemini(false);
+    }
+  }
+
+  async function handleGeminiImageChange(event) {
+    const files = Array.from(event.target.files || []).slice(0, 8);
+    if (files.length === 0) {
+      setGeminiImages([]);
+      return;
+    }
+
+    const nextImages = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                name: file.name,
+                dataUrl: typeof reader.result === "string" ? reader.result : "",
+              });
+            };
+            reader.onerror = () => reject(new Error(`Failed to read ${file.name}.`));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    setGeminiImages(nextImages.filter((image) => image.dataUrl));
+  }
+
   return (
     <main className="app-shell">
       <section className="hero">
@@ -630,6 +760,68 @@ export default function App() {
           </div>
           <p className="hint">Supported: Instagram Reels, TikTok videos, YouTube Shorts.</p>
         </section>
+      </section>
+
+      <section className="panel stack">
+        <div className="panel-header">
+          <h2>Gemini</h2>
+          <p>Quick dev prompt box for the server-side Gemini API key.</p>
+        </div>
+
+        <div>
+          <label htmlFor="gemini-prompt">Prompt Gemini 2.5 Flash</label>
+          <textarea
+            id="gemini-prompt"
+            value={geminiPrompt}
+            onChange={(event) => setGeminiPrompt(event.target.value)}
+            placeholder="Ask Gemini something simple to verify the key works."
+          />
+        </div>
+
+        <div>
+          <label htmlFor="gemini-images">Upload Images</label>
+          <input
+            id="gemini-images"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleGeminiImageChange}
+          />
+          <p className="hint">Up to 8 images. They stay in this browser only.</p>
+        </div>
+
+        {geminiImages.length > 0 ? (
+          <div className="gemini-image-grid">
+            {geminiImages.map((image) => (
+              <figure className="gemini-image-card" key={image.name}>
+                <img alt={image.name} src={image.dataUrl} />
+                <figcaption>{image.name}</figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="actions">
+          <button type="button" disabled={isPromptingGemini} onClick={promptGemini}>
+            {isPromptingGemini ? "Prompting..." : "Prompt Gemini"}
+          </button>
+        </div>
+
+        <div className="status" data-tone={geminiStatus.tone}>
+          {geminiStatus.message}
+        </div>
+
+        <article className="meta-card">
+          <h3>Gemini Response</h3>
+          <p className="gemini-response">{geminiResponse}</p>
+        </article>
+
+        <article className="meta-card">
+          <h3>Gemini Request Payload</h3>
+          <pre className="prompt-preview">
+            {JSON.stringify(buildGeminiRequestPayload(), null, 2)}
+          </pre>
+        </article>
       </section>
 
       <section className="panel">
