@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, computed_field, field_validator
 
 
 class TikTokAuthor(BaseModel):
@@ -13,11 +13,16 @@ class TikTokAuthor(BaseModel):
 
 
 class TikTokVideoScrapeRequest(BaseModel):
-    url: AnyHttpUrl
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    url: str
 
     @field_validator("url")
     @classmethod
-    def validate_tiktok_url(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+    def validate_tiktok_url(cls, value: str) -> str:
+        validated = TypeAdapter(AnyHttpUrl).validate_python(value)
+        if validated.scheme != "https":
+            raise ValueError("URL must use https.")
         allowed_hosts = {
             "tiktok.com",
             "www.tiktok.com",
@@ -25,17 +30,17 @@ class TikTokVideoScrapeRequest(BaseModel):
             "vm.tiktok.com",
             "vt.tiktok.com",
         }
-        if value.host not in allowed_hosts:
+        if validated.host not in allowed_hosts:
             raise ValueError("URL must point to a TikTok video.")
 
         short_link_hosts = {"vm.tiktok.com", "vt.tiktok.com"}
-        if value.host in short_link_hosts:
-            return value
+        if validated.host in short_link_hosts:
+            return str(validated)
 
-        if "/video/" not in value.path:
+        if "/video/" not in validated.path:
             raise ValueError("URL must point to a TikTok video.")
 
-        return value
+        return str(validated)
 
 
 class TikTokVideoScrapeResponse(BaseModel):

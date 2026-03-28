@@ -22,6 +22,7 @@ class StubInstagramService:
             title="Example reel",
             description="Example description",
             thumbnail_url="https://cdn.example.com/thumb.jpg",
+            video_url="https://cdn.example.com/instagram-video.mp4",
         )
 
 
@@ -39,6 +40,7 @@ class StubTikTokService:
             title="Example TikTok",
             description="Example TikTok description",
             thumbnail_url="https://cdn.example.com/tiktok-thumb.jpg",
+            video_url="https://cdn.example.com/tiktok-video.mp4",
         )
 
 
@@ -56,6 +58,7 @@ class StubYouTubeService:
             title="Example Short",
             description="Example Short description",
             thumbnail_url="https://cdn.example.com/youtube-thumb.jpg",
+            video_url="https://cdn.example.com/youtube-video.mp4",
         )
 
 
@@ -99,6 +102,7 @@ async def test_scrape_routes_to_instagram_service_and_normalizes_response() -> N
     assert result.platform == "instagram"
     assert result.media_id == "abc123"
     assert str(result.cover_image_url) == "https://cdn.example.com/thumb.jpg"
+    assert str(result.video_url) == "https://cdn.example.com/instagram-video.mp4"
 
 
 @pytest.mark.anyio
@@ -113,6 +117,7 @@ async def test_scrape_routes_to_tiktok_service_and_normalizes_response() -> None
     assert result.platform == "tiktok"
     assert result.media_id == "9876543210"
     assert str(result.cover_image_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
 
 
 @pytest.mark.anyio
@@ -127,6 +132,7 @@ async def test_scrape_routes_to_youtube_service_and_normalizes_response() -> Non
     assert result.platform == "youtube"
     assert result.media_id == "xyz987"
     assert str(result.cover_image_url) == "https://cdn.example.com/youtube-thumb.jpg"
+    assert str(result.video_url) == "https://cdn.example.com/youtube-video.mp4"
 
 
 @pytest.mark.anyio

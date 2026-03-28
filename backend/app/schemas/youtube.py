@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, computed_field, field_validator
 
 
 class YouTubeChannel(BaseModel):
@@ -14,17 +14,22 @@ class YouTubeChannel(BaseModel):
 
 
 class YouTubeShortScrapeRequest(BaseModel):
-    url: AnyHttpUrl
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    url: str
 
     @field_validator("url")
     @classmethod
-    def validate_shorts_url(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+    def validate_shorts_url(cls, value: str) -> str:
+        validated = TypeAdapter(AnyHttpUrl).validate_python(value)
+        if validated.scheme != "https":
+            raise ValueError("URL must use https.")
         allowed_hosts = {"youtube.com", "www.youtube.com", "m.youtube.com"}
-        if value.host not in allowed_hosts:
+        if validated.host not in allowed_hosts:
             raise ValueError("URL must point to a YouTube Shorts video.")
-        if not value.path.startswith("/shorts/"):
+        if not validated.path.startswith("/shorts/"):
             raise ValueError("URL must point to a YouTube Shorts video.")
-        return value
+        return str(validated)
 
 
 class YouTubeShortScrapeResponse(BaseModel):

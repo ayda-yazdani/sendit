@@ -1,7 +1,11 @@
 from contextlib import asynccontextmanager
+import logging
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -9,6 +13,7 @@ from app.api.router import api_router
 from app.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -36,6 +41,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={
+            "detail": "Invalid request payload.",
+            "errors": jsonable_encoder(exc.errors()),
+        },
+    )
+
+
+@app.exception_handler(ResponseValidationError)
+async def response_validation_exception_handler(
+    _request: Request, exc: ResponseValidationError
+) -> JSONResponse:
+    logger.exception("Response validation failed", exc_info=exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal response validation failed."},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(
+    _request: Request, exc: Exception
+) -> JSONResponse:
+    logger.exception("Unhandled API exception", exc_info=exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error."},
+    )
 
 
 @app.get("/health", tags=["health"])

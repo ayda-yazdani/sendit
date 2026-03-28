@@ -66,33 +66,55 @@ class YouTubeShortsScraperService:
         primary_video = pick_primary_object(json_ld_documents)
 
         short_id = self._extract_short_id(str(response.url))
-        title = open_graph.get("og:title") or pick_string(primary_video, "name")
-        description = open_graph.get("og:description") or pick_string(
-            primary_video, "description"
+        title = (
+            open_graph.get("og:title")
+            or parser.meta_tags.get("twitter:title")
+            or parser.meta_tags.get("title")
+            or pick_string(primary_video, "name")
         )
-        thumbnail_url = open_graph.get("og:image") or pick_thumbnail(primary_video)
+        description = (
+            open_graph.get("og:description")
+            or parser.meta_tags.get("twitter:description")
+            or parser.meta_tags.get("description")
+            or pick_string(primary_video, "description")
+        )
+        thumbnail_url = (
+            open_graph.get("og:image")
+            or parser.meta_tags.get("twitter:image")
+            or pick_thumbnail(primary_video)
+        )
         video_url = (
             open_graph.get("og:video")
             or open_graph.get("og:video:url")
             or pick_string(primary_video, "contentUrl")
         )
+        canonical_url = open_graph.get("og:url") or parser.canonical_url
+        if canonical_url is None and short_id is not None:
+            canonical_url = f"https://www.youtube.com/shorts/{short_id}"
+
+        embed_url = pick_string(primary_video, "embedUrl")
+        if embed_url is None and short_id is not None:
+            embed_url = f"https://www.youtube.com/embed/{short_id}"
 
         if not any(
-            [title, description, thumbnail_url, video_url, open_graph, json_ld_documents]
+            [
+                title,
+                description,
+                thumbnail_url,
+                video_url,
+                open_graph,
+                json_ld_documents,
+            ]
         ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not extract YouTube Short metadata from the response.",
             )
 
-        embed_url = pick_string(primary_video, "embedUrl")
-        if embed_url is None and short_id is not None:
-            embed_url = f"https://www.youtube.com/embed/{short_id}"
-
         return YouTubeShortScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
-            canonical_url=open_graph.get("og:url") or parser.canonical_url,
+            canonical_url=canonical_url,
             short_id=short_id,
             title=title,
             description=description,

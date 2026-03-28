@@ -23,7 +23,11 @@ function prettyUser(user) {
 
 function emptySummary() {
   return {
+    platform: null,
     coverImageUrl: null,
+    videoUrl: null,
+    embedUrl: null,
+    canonicalUrl: null,
     description: "Nothing fetched yet.",
     postDate: "Nothing fetched yet.",
     userText: "Nothing fetched yet.",
@@ -32,8 +36,11 @@ function emptySummary() {
 
 function emptyConfigSummary() {
   return {
-    supabaseUrl: "Not checked yet.",
-    authUrl: "Not checked yet.",
+    apiBaseUrl: "Detecting...",
+    supabaseUrl: "Loading from backend .env...",
+    authUrl: "Loading from backend .env...",
+    keyName: "Loading from backend .env...",
+    keyPresent: "Loading from backend .env...",
     signupMode: "Not checked yet.",
     providers: "Not checked yet.",
   };
@@ -60,6 +67,27 @@ async function parseResponse(response) {
   }
 }
 
+function apiUrl(path) {
+  if (typeof window === "undefined") {
+    return path;
+  }
+
+  const { protocol, hostname, port } = window.location;
+  const isFrontendDevPort = port && port !== "8000";
+  const isLocalhost = hostname === "127.0.0.1" || hostname === "localhost";
+
+  if (isLocalhost && isFrontendDevPort) {
+    return `${protocol}//${hostname}:8000${path}`;
+  }
+
+  return path;
+}
+
+async function loadRuntimeInfo() {
+  const response = await fetch(apiUrl("/api/v1/auth/runtime"));
+  return parseResponse(response);
+}
+
 export default function App() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -80,9 +108,11 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [videoPlaybackError, setVideoPlaybackError] = useState("");
 
   useEffect(() => {
     setToken(localStorage.getItem(storageKey) || "");
+    void fetchRuntimeInfo();
     void checkSupabaseConfig({ updateResponse: false });
   }, []);
 
@@ -97,11 +127,17 @@ export default function App() {
 
   function resetSummary() {
     setSummary(emptySummary());
+    setVideoPlaybackError("");
   }
 
   function applyPayload(payload) {
+    setVideoPlaybackError("");
     setSummary({
+      platform: payload.platform || null,
       coverImageUrl: payload.cover_image_url || null,
+      videoUrl: payload.video_url || null,
+      embedUrl: payload.embed_url || null,
+      canonicalUrl: payload.canonical_url || payload.resolved_url || payload.requested_url || null,
       description: payload.description || "No description returned.",
       postDate: payload.post_date || "No post date returned.",
       userText: prettyUser(payload.user),
@@ -109,17 +145,44 @@ export default function App() {
   }
 
   function applyConfigSummary(payload) {
-    setConfigSummary({
-      supabaseUrl: payload.supabase_url || "Not returned.",
-      authUrl: payload.auth_url || "Not returned.",
+    setConfigSummary((current) => ({
+      apiBaseUrl: payload.api_base_url || current.apiBaseUrl,
+      supabaseUrl: payload.supabase_url || current.supabaseUrl || "Not returned.",
+      authUrl: payload.auth_url || current.authUrl || "Not returned.",
+      keyName: payload.key_name || current.keyName,
+      keyPresent:
+        typeof payload.key_present === "boolean"
+          ? payload.key_present
+            ? "Yes"
+            : "No"
+          : current.keyPresent,
       signupMode:
         payload.disable_signup === true
           ? "Disabled"
           : payload.disable_signup === false
             ? "Enabled"
-            : "Unknown",
-      providers: formatProviders(payload.external),
-    });
+            : current.signupMode,
+      providers:
+        payload.external !== undefined
+          ? formatProviders(payload.external)
+          : current.providers,
+    }));
+  }
+
+  async function fetchRuntimeInfo() {
+    try {
+      const payload = await loadRuntimeInfo();
+      applyConfigSummary(payload);
+    } catch (error) {
+      setConfigSummary((current) => ({
+        ...current,
+        apiBaseUrl: apiUrl(""),
+        supabaseUrl: `Runtime load failed: ${error.message || String(error)}`,
+        authUrl: `Runtime load failed: ${error.message || String(error)}`,
+        keyName: "Runtime load failed",
+        keyPresent: "Unknown",
+      }));
+    }
   }
 
   async function checkSupabaseConfig(options = {}) {
@@ -129,7 +192,7 @@ export default function App() {
     setConfigStatus({ message: "Checking Supabase configuration...", tone: "" });
 
     try {
-      const response = await fetch("/api/v1/auth/config-check");
+      const response = await fetch(apiUrl("/api/v1/auth/config-check"));
       const payload = await parseResponse(response);
 
       if (updateResponse) {
@@ -188,7 +251,7 @@ export default function App() {
         requestBody.metadata = { name: displayName.trim() };
       }
 
-      const response = await fetch("/api/v1/auth/signup", {
+      const response = await fetch(apiUrl("/api/v1/auth/signup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -237,7 +300,7 @@ export default function App() {
     setAuthStatus({ message: "Signing in...", tone: "" });
 
     try {
-      const response = await fetch("/api/v1/auth/login", {
+      const response = await fetch(apiUrl("/api/v1/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -276,7 +339,7 @@ export default function App() {
     setAuthStatus({ message: "Checking session...", tone: "" });
 
     try {
-      const response = await fetch("/api/v1/auth/me", {
+      const response = await fetch(apiUrl("/api/v1/auth/me"), {
         headers: { Authorization: `Bearer ${token.trim()}` },
       });
 
@@ -317,7 +380,7 @@ export default function App() {
     setFetchStatus({ message: "Fetching API...", tone: "" });
 
     try {
-      const response = await fetch("/api/v1/media/scrape", {
+      const response = await fetch(apiUrl("/api/v1/media/scrape"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -384,12 +447,22 @@ export default function App() {
 
           <div className="meta-grid">
             <article className="meta-card">
+              <h3>API Base</h3>
+              <p>{configSummary.apiBaseUrl}</p>
+            </article>
+            <article className="meta-card">
               <h3>Project URL</h3>
               <p>{configSummary.supabaseUrl}</p>
             </article>
             <article className="meta-card">
               <h3>Auth URL</h3>
               <p>{configSummary.authUrl}</p>
+            </article>
+            <article className="meta-card">
+              <h3>Env Key</h3>
+              <p>
+                {configSummary.keyName} ({configSummary.keyPresent})
+              </p>
             </article>
             <article className="meta-card">
               <h3>Signups</h3>
@@ -532,26 +605,91 @@ export default function App() {
       </section>
 
       <section className="panel">
-        <div className="panel-header">
-          <h2>Returned Data</h2>
-          <p>Normalized fields plus the raw JSON payload.</p>
-        </div>
-
-        <div className="summary">
-          <div className="cover">
-            {summary.coverImageUrl ? (
-              <img alt="Returned cover image" src={summary.coverImageUrl} />
-            ) : (
-              <span>No cover image returned yet.</span>
-            )}
+          <div className="panel-header">
+            <h2>Returned Data</h2>
+            <p>Normalized fields plus the raw JSON payload.</p>
           </div>
 
-          <div className="meta-grid">
-            <article className="meta-card">
-              <h3>Description</h3>
-              <p>{summary.description}</p>
-            </article>
-            <article className="meta-card">
+          <div className="summary">
+            <div className="cover">
+              {summary.coverImageUrl ? (
+                <img alt="Returned cover image" src={summary.coverImageUrl} />
+              ) : (
+                <span>No cover image returned yet.</span>
+              )}
+            </div>
+
+            <div className="meta-grid">
+              <article className="meta-card">
+                <h3>Video</h3>
+                {summary.videoUrl || summary.embedUrl || summary.canonicalUrl ? (
+                  <div className="media-stack">
+                    {summary.videoUrl ? (
+                      <video
+                        key={summary.videoUrl}
+                        className="video-preview"
+                        controls
+                        preload="metadata"
+                        src={summary.videoUrl}
+                        onError={() => {
+                          setVideoPlaybackError(
+                            "Direct video playback is blocked by this provider. Use the embed or open the original post.",
+                          );
+                        }}
+                      />
+                    ) : null}
+                    {videoPlaybackError ? (
+                      <p className="media-note">{videoPlaybackError}</p>
+                    ) : null}
+                    {summary.embedUrl ? (
+                      <iframe
+                        className="embed-preview"
+                        src={summary.embedUrl}
+                        title="Embedded media preview"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : null}
+                    {summary.videoUrl ? (
+                      <a
+                        className="media-link"
+                        href={summary.videoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open direct video URL
+                      </a>
+                    ) : null}
+                    {summary.embedUrl ? (
+                      <a
+                        className="media-link"
+                        href={summary.embedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open embed URL
+                      </a>
+                    ) : null}
+                    {summary.canonicalUrl ? (
+                      <a
+                        className="media-link"
+                        href={summary.canonicalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open original post
+                      </a>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p>No video URL returned.</p>
+                )}
+              </article>
+              <article className="meta-card">
+                <h3>Description</h3>
+                <p>{summary.description}</p>
+              </article>
+              <article className="meta-card">
               <h3>Post Date</h3>
               <p>{summary.postDate}</p>
             </article>

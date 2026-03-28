@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, computed_field, field_validator
 
 
 class InstagramAuthor(BaseModel):
@@ -13,17 +13,22 @@ class InstagramAuthor(BaseModel):
 
 
 class InstagramReelScrapeRequest(BaseModel):
-    url: AnyHttpUrl
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    url: str
 
     @field_validator("url")
     @classmethod
-    def validate_reel_url(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+    def validate_reel_url(cls, value: str) -> str:
+        validated = TypeAdapter(AnyHttpUrl).validate_python(value)
+        if validated.scheme != "https":
+            raise ValueError("URL must use https.")
         allowed_hosts = {"instagram.com", "www.instagram.com", "m.instagram.com"}
-        if value.host not in allowed_hosts:
+        if validated.host not in allowed_hosts:
             raise ValueError("URL must point to an Instagram reel.")
-        if not value.path.startswith("/reel/"):
+        if not validated.path.startswith("/reel/"):
             raise ValueError("URL must point to an Instagram reel.")
-        return value
+        return str(validated)
 
 
 class InstagramReelScrapeResponse(BaseModel):

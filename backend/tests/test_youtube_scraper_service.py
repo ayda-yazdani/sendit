@@ -37,6 +37,18 @@ YOUTUBE_HTML = """
 </html>
 """
 
+YOUTUBE_SPARSE_HTML = """
+<html>
+  <head>
+    <link rel="canonical" href="https://www.youtube.com/shorts/xyz987" />
+    <meta name="twitter:title" content="Sparse Short title" />
+    <meta name="description" content="Sparse Short description" />
+    <meta name="twitter:image" content="https://cdn.example.com/sparse-thumb.jpg" />
+  </head>
+  <body></body>
+</html>
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_short_extracts_youtube_metadata() -> None:
@@ -71,6 +83,30 @@ async def test_scrape_short_extracts_youtube_metadata() -> None:
     assert result.channel.handle == "shortscreator"
     assert result.channel.channel_id == "UC123456789"
     assert result.open_graph["og:site_name"] == "YouTube"
+
+
+@pytest.mark.anyio
+async def test_scrape_short_falls_back_to_non_og_metadata() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=YOUTUBE_SPARSE_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        result = await service.scrape_short(
+            YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/xyz987")
+        )
+
+    assert result.short_id == "xyz987"
+    assert result.title == "Sparse Short title"
+    assert result.description == "Sparse Short description"
+    assert str(result.thumbnail_url) == "https://cdn.example.com/sparse-thumb.jpg"
+    assert str(result.canonical_url) == "https://www.youtube.com/shorts/xyz987"
+    assert str(result.embed_url) == "https://www.youtube.com/embed/xyz987"
 
 
 @pytest.mark.anyio

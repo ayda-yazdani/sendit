@@ -92,6 +92,11 @@ class StubSupabaseAuthService:
         )
 
 
+class CrashingSupabaseAuthService:
+    async def check_configuration(self) -> SupabaseConfigCheckResponse:
+        raise RuntimeError("boom")
+
+
 class StubInstagramReelScraperService:
     def __init__(self) -> None:
         self.request_payload: InstagramReelScrapeRequest | None = None
@@ -128,6 +133,7 @@ class StubTikTokVideoScraperService:
             title="Example TikTok",
             description="Example TikTok description",
             thumbnail_url="https://cdn.example.com/tiktok-thumb.jpg",
+            video_url="https://cdn.example.com/tiktok-video.mp4",
             open_graph={"og:title": "Example TikTok"},
         )
 
@@ -199,6 +205,18 @@ def test_health_check_returns_ok(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_config_check_returns_controlled_500_for_unhandled_service_error() -> None:
+    app.dependency_overrides[get_supabase_auth_service] = (
+        lambda: CrashingSupabaseAuthService()
+    )
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/api/v1/auth/config-check")
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error."}
 
 
 def test_tester_page_renders_webapp(client: TestClient) -> None:
@@ -444,7 +462,7 @@ def test_unified_media_scrape_returns_normalized_tiktok_payload(
         "title": "Example TikTok",
         "description": "Example TikTok description",
         "cover_image_url": "https://cdn.example.com/tiktok-thumb.jpg",
-        "video_url": None,
+        "video_url": "https://cdn.example.com/tiktok-video.mp4",
         "embed_url": None,
         "post_date": None,
         "duration": None,
@@ -497,12 +515,80 @@ def test_unified_media_scrape_rejects_unsupported_url(
     }
 
 
+def test_signup_rejects_extra_fields(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "user@example.com",
+            "password": "password123",
+            "unexpected": "value",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid request payload."
+
+
+def test_unified_media_scrape_rejects_non_https_url(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "http://www.tiktok.com/@creator/video/9876543210"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid request payload."
+
+
+def test_unified_media_scrape_rejects_invalid_url_string(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "not-a-url"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid request payload."
+
+
+def test_unified_media_scrape_rejects_extra_fields(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={
+            "url": "https://www.tiktok.com/@creator/video/9876543210",
+            "unexpected": True,
+        },
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid request payload."
+
+
 def test_scrape_instagram_reel_rejects_invalid_url_for_verified_user(
     client: TestClient,
 ) -> None:
     response = client.post(
         "/api/v1/instagram/reels/scrape",
         json={"url": "https://www.example.com/not-a-reel"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_scrape_instagram_reel_rejects_invalid_url_string_for_verified_user(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/instagram/reels/scrape",
+        json={"url": "not-a-url"},
         headers={"Authorization": "Bearer access-token"},
     )
 

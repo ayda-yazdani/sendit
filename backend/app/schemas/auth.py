@@ -2,7 +2,11 @@ from typing import Any
 
 from datetime import datetime
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+class StrictAPIModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class SupabaseModel(BaseModel):
@@ -64,19 +68,40 @@ class SupabaseSession(SupabaseModel):
     weak_password: WeakPasswordDetails | None = None
 
 
-class SignUpRequest(BaseModel):
+class SignUpRequest(StrictAPIModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     metadata: dict[str, Any] | None = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Password must not be blank.")
+        return value
 
-class SignInRequest(BaseModel):
+
+class SignInRequest(StrictAPIModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def validate_signin_password_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Password must not be blank.")
+        return value
 
-class RefreshSessionRequest(BaseModel):
+
+class RefreshSessionRequest(StrictAPIModel):
     refresh_token: str = Field(min_length=1)
+
+    @field_validator("refresh_token")
+    @classmethod
+    def validate_refresh_token_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Refresh token must not be blank.")
+        return value
 
 
 class AuthResponse(BaseModel):
@@ -97,3 +122,11 @@ class SupabaseConfigCheckResponse(BaseModel):
     disable_signup: bool | None = None
     external: dict[str, bool] = Field(default_factory=dict)
     message: str
+
+
+class SupabaseRuntimeInfoResponse(BaseModel):
+    api_base_url: str
+    supabase_url: AnyHttpUrl
+    auth_url: AnyHttpUrl
+    key_present: bool = True
+    key_name: str

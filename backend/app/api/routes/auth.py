@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Depends, Response, status
+import os
 
+from fastapi import APIRouter, Depends, Request, Response, status
+
+from app.config import Settings, get_settings
 from app.dependencies import get_access_token, get_supabase_auth_service
 from app.schemas.auth import (
     AuthResponse,
@@ -7,11 +10,30 @@ from app.schemas.auth import (
     SignInRequest,
     SignUpRequest,
     SupabaseConfigCheckResponse,
+    SupabaseRuntimeInfoResponse,
     UserResponse,
 )
 from app.services.supabase_auth import SupabaseAuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/runtime", response_model=SupabaseRuntimeInfoResponse)
+async def supabase_runtime_info(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> SupabaseRuntimeInfoResponse:
+    return SupabaseRuntimeInfoResponse(
+        api_base_url=str(request.base_url).rstrip("/"),
+        supabase_url=settings.supabase_url,
+        auth_url=settings.supabase_auth_url,
+        key_present=bool(settings.supabase_key),
+        key_name=(
+            "SUPABASE_PUBLISHABLE_KEY"
+            if os.getenv("SUPABASE_PUBLISHABLE_KEY")
+            else "SUPABASE_ANON_KEY"
+        ),
+    )
 
 
 @router.get("/config-check", response_model=SupabaseConfigCheckResponse)
