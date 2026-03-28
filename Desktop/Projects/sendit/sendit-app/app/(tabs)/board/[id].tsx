@@ -7,8 +7,8 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRealtime } from "@/lib/hooks/use-realtime";
 import { MemberList } from "@/components/board/MemberList";
 import { UrlInput } from "@/components/board/UrlInput";
-import { PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
 import { supabase } from "@/lib/supabase";
+import { ExtractionCard } from "@/components/extraction/ExtractionCard";
 import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
 import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 
@@ -146,37 +146,16 @@ export default function BoardDetailScreen() {
               <Text style={styles.placeholderHint}>Paste a URL below to share content</Text>
             </View>
           ) : (
-            reels.map((reel) => {
-              const platform = PLATFORM_DISPLAY[reel.platform as keyof typeof PLATFORM_DISPLAY] || PLATFORM_DISPLAY.other;
-              return (
-                <View key={reel.id} style={styles.reelCard}>
-                  <View style={styles.reelHeader}>
-                    <Text style={styles.reelPlatform}>{platform.emoji} {platform.label}</Text>
-                    {reel.classification && (
-                      <View style={styles.classificationBadge}>
-                        <Text style={styles.classificationText}>{reel.classification.replace("_", " ")}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.reelUrl} numberOfLines={1}>{reel.url}</Text>
-                  {reel.extraction_data ? (
-                    <View style={styles.extractionPreview}>
-                      {reel.extraction_data.venue_name && (
-                        <Text style={styles.extractionVenue}>📍 {reel.extraction_data.venue_name}</Text>
-                      )}
-                      {reel.extraction_data.vibe && (
-                        <Text style={styles.extractionVibe}>{reel.extraction_data.vibe}</Text>
-                      )}
-                      {reel.extraction_data.price && (
-                        <Text style={styles.extractionPrice}>💰 {reel.extraction_data.price}</Text>
-                      )}
-                    </View>
-                  ) : (
-                    <Text style={styles.extractionPending}>⏳ Analyzing...</Text>
-                  )}
-                </View>
-              );
-            })
+            reels.map((reel) => (
+              <ExtractionCard
+                key={reel.id}
+                url={reel.url}
+                platform={reel.platform}
+                classification={reel.classification}
+                extractionData={reel.extraction_data}
+                createdAt={reel.created_at}
+              />
+            ))
           )}
         </View>
 
@@ -246,15 +225,4 @@ const styles = StyleSheet.create({
   placeholderIcon: { fontSize: 32, marginBottom: 8 },
   placeholderText: { fontSize: 14, color: "#999", fontWeight: "500" },
   placeholderHint: { fontSize: 12, color: "#bbb", marginTop: 4 },
-  reelCard: { backgroundColor: "#f9f7f5", borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: "#eee" },
-  reelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  reelPlatform: { fontSize: 13, fontWeight: "600", color: "#333" },
-  classificationBadge: { backgroundColor: "#d4562a15", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  classificationText: { fontSize: 11, color: "#d4562a", fontWeight: "600", textTransform: "capitalize" },
-  reelUrl: { fontSize: 12, color: "#999", marginBottom: 8 },
-  extractionPreview: { gap: 4 },
-  extractionVenue: { fontSize: 14, fontWeight: "600", color: "#333" },
-  extractionVibe: { fontSize: 13, color: "#666" },
-  extractionPrice: { fontSize: 13, color: "#1a9e76", fontWeight: "500" },
-  extractionPending: { fontSize: 13, color: "#c49a2e" },
 });
