@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, Pressable, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { Member } from "@/lib/stores/board-store";
+import { theme } from "@/constants/Theme";
 
 interface Commitment {
   id: string;
@@ -19,7 +20,7 @@ interface ReceiptWallProps {
   suggestionId: string;
 }
 
-const AVATAR_COLORS = ["#d4562a", "#1a9e76", "#c49a2e", "#6e6963", "#3b82f6", "#8b5cf6", "#ec4899"];
+const AVATAR_COLORS = ["#9b1b4a", "#4d8a8a", "#a3b899", "#c9917a"];
 
 function getColor(name: string): string {
   let hash = 0;
@@ -95,7 +96,7 @@ export function ReceiptWall({ commitments, members, currentMemberId, suggestionI
 
           return (
             <View key={commitment.id} style={styles.receiptItem}>
-              <View style={[styles.avatarRing, { borderColor: hasReceipt ? "#1a9e76" : "#ddd" }]}>
+              <View style={[styles.avatarRing, { borderColor: hasReceipt ? theme.colors.secondary : theme.colors.border }]}>
                 <View style={[styles.avatar, { backgroundColor: bgColor }]}>
                   <Text style={styles.avatarText}>{initial}</Text>
                 </View>
@@ -108,7 +109,7 @@ export function ReceiptWall({ commitments, members, currentMemberId, suggestionI
               <Text style={styles.memberName} numberOfLines={1}>
                 {member.display_name.split(" ")[0]}
               </Text>
-              <Text style={[styles.receiptStatus, { color: hasReceipt ? "#1a9e76" : "#ccc" }]}>
+              <Text style={[styles.receiptStatus, { color: hasReceipt ? theme.colors.secondary : theme.colors.textMuted }]}>
                 {hasReceipt ? "Confirmed" : "Pending"}
               </Text>
             </View>
@@ -136,20 +137,20 @@ export function ReceiptWall({ commitments, members, currentMemberId, suggestionI
 
 const styles = StyleSheet.create({
   container: { marginTop: 8 },
-  title: { fontSize: 16, fontWeight: "700", color: "#333", marginBottom: 4 },
-  subtitle: { fontSize: 13, color: "#999", marginBottom: 16 },
+  title: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 4 },
+  subtitle: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 16 },
   wall: { flexDirection: "row", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 16 },
   receiptItem: { alignItems: "center", width: 64 },
   avatarRing: { width: 50, height: 50, borderRadius: 25, borderWidth: 3, alignItems: "center", justifyContent: "center", position: "relative" },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  checkmark: { position: "absolute", bottom: -2, right: -2, backgroundColor: "#1a9e76", borderRadius: 8, width: 16, height: 16, alignItems: "center", justifyContent: "center" },
+  checkmark: { position: "absolute", bottom: -2, right: -2, backgroundColor: theme.colors.secondary, borderRadius: 8, width: 16, height: 16, alignItems: "center", justifyContent: "center" },
   checkmarkText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
-  memberName: { fontSize: 11, color: "#666", marginTop: 6, textAlign: "center" },
+  memberName: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 6, textAlign: "center" },
   receiptStatus: { fontSize: 9, fontWeight: "600", marginTop: 2 },
-  uploadButton: { backgroundColor: "#f5f0eb", borderRadius: 12, padding: 14, alignItems: "center", borderWidth: 1, borderColor: "#e0d9d0", borderStyle: "dashed" },
-  uploadText: { fontSize: 14, color: "#d4562a", fontWeight: "600" },
+  uploadButton: { backgroundColor: theme.colors.bgCardLight, borderRadius: 12, padding: 14, alignItems: "center", borderWidth: 1, borderColor: theme.colors.borderLight, borderStyle: "dashed" },
+  uploadText: { fontSize: 14, color: theme.colors.primary, fontWeight: "600" },
   myReceipt: { marginTop: 12, alignItems: "center" },
-  receiptImage: { width: 200, height: 120, borderRadius: 10, backgroundColor: "#f0f0f0" },
-  receiptConfirmed: { fontSize: 12, color: "#1a9e76", marginTop: 8, fontWeight: "500" },
+  receiptImage: { width: 200, height: 120, borderRadius: 10, backgroundColor: theme.colors.bgCardLight },
+  receiptConfirmed: { fontSize: 12, color: theme.colors.secondary, marginTop: 8, fontWeight: "500" },
 });

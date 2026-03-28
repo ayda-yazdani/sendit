@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Image, Pressable, Linking } from "react-native";
 import { Platform as PlatformType, PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
+import { theme } from "@/constants/Theme";
 
 interface ExtractionData {
   title?: string | null;
@@ -28,11 +29,11 @@ interface ExtractionCardProps {
 }
 
 const CLASSIFICATION_STYLES: Record<string, { label: string; color: string; bg: string }> = {
-  real_event: { label: "Event", color: "#d4562a", bg: "#fdf5f2" },
-  real_venue: { label: "Venue", color: "#1a9e76", bg: "#f0faf6" },
-  vibe_inspiration: { label: "Vibe", color: "#8b5cf6", bg: "#f5f0ff" },
-  recipe_food: { label: "Food", color: "#c49a2e", bg: "#fdf8ee" },
-  humour_identity: { label: "Identity", color: "#ec4899", bg: "#fdf0f7" },
+  real_event: { label: "Event", color: "#9b1b4a", bg: "rgba(155,27,74,0.15)" },
+  real_venue: { label: "Venue", color: "#4d8a8a", bg: "rgba(77,138,138,0.15)" },
+  vibe_inspiration: { label: "Vibe", color: "#c9917a", bg: "rgba(201,145,122,0.15)" },
+  recipe_food: { label: "Food", color: "#a3b899", bg: "rgba(163,184,153,0.15)" },
+  humour_identity: { label: "Identity", color: "#b8265e", bg: "rgba(184,38,94,0.15)" },
 };
 
 function timeAgo(dateStr: string): string {
@@ -177,51 +178,51 @@ export function ExtractionCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.bgCard,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: theme.colors.borderLight,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 1,
+    elevation: 2,
   },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  platformBadge: { fontSize: 13, fontWeight: "600", color: "#555" },
+  platformBadge: { fontSize: 13, fontWeight: "600", color: theme.colors.textSecondary },
   classBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   classText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  timeAgo: { fontSize: 11, color: "#bbb", marginLeft: "auto" },
-  analyzing: { fontSize: 15, color: "#c49a2e", fontWeight: "500", marginBottom: 6 },
-  errorText: { fontSize: 14, color: "#e74c3c", marginBottom: 6 },
-  urlText: { fontSize: 11, color: "#ccc" },
+  timeAgo: { fontSize: 11, color: theme.colors.textMuted, marginLeft: "auto" },
+  analyzing: { fontSize: 15, color: theme.colors.warm, fontWeight: "500", marginBottom: 6 },
+  errorText: { fontSize: 14, color: theme.colors.warm, marginBottom: 6 },
+  urlText: { fontSize: 11, color: theme.colors.textMuted },
   contentRow: { flexDirection: "row", gap: 12, marginBottom: 10 },
-  thumbnail: { width: 72, height: 96, borderRadius: 8, backgroundColor: "#f0f0f0" },
+  thumbnail: { width: 72, height: 96, borderRadius: 10, backgroundColor: theme.colors.bgCardLight },
   contentText: { flex: 1, justifyContent: "center" },
-  title: { fontSize: 15, fontWeight: "600", color: "#333", lineHeight: 20, marginBottom: 4 },
-  creator: { fontSize: 13, color: "#999" },
+  title: { fontSize: 15, fontWeight: "600", color: theme.colors.text, lineHeight: 20, marginBottom: 4 },
+  creator: { fontSize: 13, color: theme.colors.textSecondary },
   metaSection: { gap: 6, marginBottom: 10 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   metaIcon: { fontSize: 14 },
-  metaText: { fontSize: 14, color: "#555" },
+  metaText: { fontSize: 14, color: theme.colors.textSecondary },
   tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
   tag: {
     fontSize: 12,
-    color: "#666",
-    backgroundColor: "#f5f3f0",
+    color: theme.colors.textSecondary,
+    backgroundColor: theme.colors.bgCardLight,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     overflow: "hidden",
   },
-  moodTag: { backgroundColor: "#f0edff", color: "#8b5cf6" },
+  moodTag: { backgroundColor: "rgba(184,38,94,0.15)", color: theme.colors.primaryLight },
   audioRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   audioIcon: { fontSize: 13 },
-  audioText: { fontSize: 12, color: "#888", fontStyle: "italic" },
+  audioText: { fontSize: 12, color: theme.colors.textSecondary, fontStyle: "italic" },
   bookingButton: {
-    backgroundColor: "#d4562a",
+    backgroundColor: theme.colors.primary,
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: "center",

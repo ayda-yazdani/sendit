@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Member } from "@/lib/stores/board-store";
+import { theme } from "@/constants/Theme";
 
 interface Commitment {
   id: string;
@@ -14,7 +15,7 @@ interface CommitmentTallyProps {
   members: Member[];
 }
 
-const AVATAR_COLORS = ["#d4562a", "#1a9e76", "#c49a2e", "#6e6963", "#3b82f6", "#8b5cf6", "#ec4899"];
+const AVATAR_COLORS = ["#9b1b4a", "#4d8a8a", "#a3b899", "#c9917a"];
 
 function getColor(name: string): string {
   let hash = 0;
@@ -23,9 +24,9 @@ function getColor(name: string): string {
 }
 
 const STATUS_RING: Record<string, string> = {
-  in: "#1a9e76",
-  maybe: "#c49a2e",
-  out: "#999",
+  in: "#4d8a8a",
+  maybe: "#c9917a",
+  out: "#5a7094",
 };
 
 export function CommitmentTally({ commitments, members }: CommitmentTallyProps) {
@@ -41,20 +42,20 @@ export function CommitmentTally({ commitments, members }: CommitmentTallyProps) 
       {/* Tally counts */}
       <View style={styles.tallyRow}>
         <View style={styles.tallyItem}>
-          <Text style={[styles.tallyCount, { color: "#1a9e76" }]}>{inCount}</Text>
+          <Text style={[styles.tallyCount, { color: theme.colors.secondary }]}>{inCount}</Text>
           <Text style={styles.tallyLabel}>In</Text>
         </View>
         <View style={styles.tallyItem}>
-          <Text style={[styles.tallyCount, { color: "#c49a2e" }]}>{maybeCount}</Text>
+          <Text style={[styles.tallyCount, { color: theme.colors.warm }]}>{maybeCount}</Text>
           <Text style={styles.tallyLabel}>Maybe</Text>
         </View>
         <View style={styles.tallyItem}>
-          <Text style={[styles.tallyCount, { color: "#999" }]}>{outCount}</Text>
+          <Text style={[styles.tallyCount, { color: theme.colors.textMuted }]}>{outCount}</Text>
           <Text style={styles.tallyLabel}>Out</Text>
         </View>
         {pendingCount > 0 && (
           <View style={styles.tallyItem}>
-            <Text style={[styles.tallyCount, { color: "#ddd" }]}>{pendingCount}</Text>
+            <Text style={[styles.tallyCount, { color: theme.colors.border }]}>{pendingCount}</Text>
             <Text style={styles.tallyLabel}>Pending</Text>
           </View>
         )}
@@ -64,7 +65,7 @@ export function CommitmentTally({ commitments, members }: CommitmentTallyProps) 
       <View style={styles.avatarRow}>
         {members.map(member => {
           const commitment = commitmentMap.get(member.id);
-          const ringColor = commitment ? STATUS_RING[commitment.status] : "#ddd";
+          const ringColor = commitment ? STATUS_RING[commitment.status] : theme.colors.border;
           const initial = (member.display_name || "?")[0].toUpperCase();
           const bgColor = getColor(member.display_name);
 
@@ -91,11 +92,11 @@ const styles = StyleSheet.create({
   tallyRow: { flexDirection: "row", justifyContent: "center", gap: 24, marginBottom: 16 },
   tallyItem: { alignItems: "center" },
   tallyCount: { fontSize: 24, fontWeight: "bold" },
-  tallyLabel: { fontSize: 11, color: "#999", marginTop: 2 },
+  tallyLabel: { fontSize: 11, color: theme.colors.textMuted, marginTop: 2 },
   avatarRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "center" },
   avatarContainer: { alignItems: "center", width: 52 },
   avatarRing: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, alignItems: "center", justifyContent: "center" },
   avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  avatarName: { fontSize: 10, color: "#666", marginTop: 4, textAlign: "center" },
+  avatarName: { fontSize: 10, color: theme.colors.textSecondary, marginTop: 4, textAlign: "center" },
 });

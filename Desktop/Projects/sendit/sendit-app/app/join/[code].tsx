@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { theme } from "@/constants/Theme";
 
 export default function JoinBoardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -13,8 +14,8 @@ export default function JoinBoardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 8 },
-  subtitle: { fontSize: 18, color: "#d4562a", marginBottom: 16 },
-  hint: { fontSize: 13, color: "#999", textAlign: "center" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20, backgroundColor: theme.colors.bg },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 8, color: theme.colors.text },
+  subtitle: { fontSize: 18, color: theme.colors.warm, marginBottom: 16 },
+  hint: { fontSize: 13, color: theme.colors.textSecondary, textAlign: "center" },
 });

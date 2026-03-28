@@ -14,6 +14,7 @@ import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 import { TasteProfileSection } from "@/components/board/TasteProfile";
 import { IdentityCard } from "@/components/board/IdentityCard";
 import { useTasteStore } from "@/lib/stores/taste-store";
+import { theme } from "@/constants/Theme";
 
 interface Reel {
   id: string;
@@ -177,7 +178,7 @@ export default function BoardDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Members</Text>
           {isLoading ? (
-            <ActivityIndicator size="small" color="#d4562a" style={{ paddingVertical: 20 }} />
+            <ActivityIndicator size="small" color={theme.colors.primary} style={{ paddingVertical: 20 }} />
           ) : (
             <MemberList members={activeBoardMembers} />
           )}
@@ -237,21 +238,21 @@ export default function BoardDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: theme.colors.bg },
   header: { padding: 20, paddingTop: 60 },
-  boardName: { fontSize: 28, fontWeight: "bold", color: "#333", marginBottom: 4 },
-  memberCount: { fontSize: 14, color: "#999" },
+  boardName: { fontSize: 28, fontWeight: "bold", color: theme.colors.text, marginBottom: 4 },
+  memberCount: { fontSize: 14, color: theme.colors.textSecondary },
   codeSection: { paddingHorizontal: 20, marginBottom: 16 },
-  codeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f5f0eb", borderRadius: 12, padding: 16 },
-  codeLabel: { fontSize: 11, color: "#999", textTransform: "uppercase", marginBottom: 4 },
-  codeValue: { fontSize: 20, fontWeight: "bold", color: "#d4562a", letterSpacing: 3 },
+  codeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: theme.colors.bgCard, borderRadius: 12, padding: 16 },
+  codeLabel: { fontSize: 11, color: theme.colors.textMuted, textTransform: "uppercase", marginBottom: 4 },
+  codeValue: { fontSize: 20, fontWeight: "bold", color: theme.colors.warm, letterSpacing: 3 },
   codeActions: { flexDirection: "row", gap: 8 },
-  codeButton: { backgroundColor: "#fff", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#ddd" },
-  codeButtonText: { fontSize: 13, fontWeight: "600", color: "#d4562a" },
+  codeButton: { backgroundColor: theme.colors.bgCardLight, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.borderLight },
+  codeButtonText: { fontSize: 13, fontWeight: "600", color: theme.colors.primary },
   section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#333", marginBottom: 12 },
-  placeholder: { alignItems: "center", paddingVertical: 24, backgroundColor: "#f9f7f5", borderRadius: 12, borderWidth: 1, borderColor: "#eee" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 12 },
+  placeholder: { alignItems: "center", paddingVertical: 24, backgroundColor: theme.colors.bgCard, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.borderLight },
   placeholderIcon: { fontSize: 32, marginBottom: 8 },
-  placeholderText: { fontSize: 14, color: "#999", fontWeight: "500" },
-  placeholderHint: { fontSize: 12, color: "#bbb", marginTop: 4 },
+  placeholderText: { fontSize: 14, color: theme.colors.textSecondary, fontWeight: "500" },
+  placeholderHint: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },
 });

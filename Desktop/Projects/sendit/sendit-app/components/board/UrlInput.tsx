@@ -11,6 +11,7 @@ import {
 import { detectPlatform, isValidUrl, PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
 import { supabase } from "@/lib/supabase";
 import { invokeExtraction } from "@/lib/ai/extraction";
+import { theme } from "@/constants/Theme";
 
 interface UrlInputProps {
   boardId: string;
@@ -92,7 +93,7 @@ export function UrlInput({ boardId, memberId, onReelAdded }: UrlInputProps) {
             setError(null);
           }}
           placeholder="Paste a link..."
-          placeholderTextColor="#999"
+          placeholderTextColor={theme.colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -117,12 +118,12 @@ export function UrlInput({ boardId, memberId, onReelAdded }: UrlInputProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, paddingBottom: 8, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#eee" },
+  container: { paddingHorizontal: 16, paddingBottom: 8, backgroundColor: theme.colors.bgDark, borderTopWidth: 1, borderTopColor: theme.colors.borderLight },
   inputRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8 },
   platformHint: { fontSize: 20 },
-  input: { flex: 1, backgroundColor: "#f5f5f5", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: "#333" },
-  sendButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#d4562a", alignItems: "center", justifyContent: "center" },
+  input: { flex: 1, backgroundColor: theme.colors.bgInput, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: theme.colors.text },
+  sendButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.primary, alignItems: "center", justifyContent: "center" },
   sendDisabled: { opacity: 0.4 },
   sendText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  error: { fontSize: 12, color: "#e74c3c", paddingTop: 8, paddingBottom: 2 },
+  error: { fontSize: 12, color: theme.colors.warm, paddingTop: 8, paddingBottom: 2 },
 });

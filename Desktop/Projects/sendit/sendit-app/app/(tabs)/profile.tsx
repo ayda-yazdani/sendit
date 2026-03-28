@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { theme } from "@/constants/Theme";
 
 export default function ProfileScreen() {
   const { deviceId, googleId } = useAuthStore();
@@ -16,9 +17,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 24 },
-  label: { fontSize: 12, color: "#999", textTransform: "uppercase", marginTop: 16, marginBottom: 4 },
-  value: { fontSize: 14, color: "#333" },
-  hint: { fontSize: 13, color: "#999", marginTop: 32, textAlign: "center" },
+  container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: theme.colors.bg },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 24, color: theme.colors.text },
+  label: { fontSize: 12, color: theme.colors.textMuted, textTransform: "uppercase", marginTop: 16, marginBottom: 4 },
+  value: { fontSize: 14, color: theme.colors.textSecondary },
+  hint: { fontSize: 13, color: theme.colors.textMuted, marginTop: 32, textAlign: "center" },
 });

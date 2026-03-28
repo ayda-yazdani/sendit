@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { theme } from "@/constants/Theme";
 
 type VoteStatus = "in" | "maybe" | "out";
 
@@ -51,7 +52,7 @@ export function VoteButtons({ suggestionId, memberId, currentVote, onVoted }: Vo
           onPress={() => handleVote("in")}
           disabled={isSubmitting}
         >
-          <Text style={[styles.buttonText, currentVote === "in" && styles.activeText]}>
+          <Text style={[styles.buttonText, styles.inText, currentVote === "in" && styles.activeText]}>
             {currentVote === "in" ? "✓ I'm In" : "I'm In"}
           </Text>
         </Pressable>
@@ -82,20 +83,21 @@ export function VoteButtons({ suggestionId, memberId, currentVote, onVoted }: Vo
 
 const styles = StyleSheet.create({
   container: { marginTop: 8 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 10 },
+  label: { fontSize: 14, fontWeight: "600", color: theme.colors.text, marginBottom: 10 },
   buttons: { flexDirection: "row", gap: 8 },
   button: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 2 },
   buttonText: { fontSize: 15, fontWeight: "600" },
   activeText: { color: "#fff" },
 
-  inButton: { borderColor: "#1a9e76", backgroundColor: "transparent" },
-  inActive: { backgroundColor: "#1a9e76", borderColor: "#1a9e76" },
+  inButton: { borderColor: theme.colors.secondary, backgroundColor: "transparent" },
+  inText: { color: theme.colors.secondary },
+  inActive: { backgroundColor: theme.colors.secondary, borderColor: theme.colors.secondary },
 
-  maybeButton: { borderColor: "#c49a2e", backgroundColor: "transparent" },
-  maybeText: { color: "#c49a2e" },
-  maybeActive: { backgroundColor: "#c49a2e", borderColor: "#c49a2e" },
+  maybeButton: { borderColor: theme.colors.warm, backgroundColor: "transparent" },
+  maybeText: { color: theme.colors.warm },
+  maybeActive: { backgroundColor: theme.colors.warm, borderColor: theme.colors.warm },
 
-  outButton: { borderColor: "#999", backgroundColor: "transparent" },
-  outText: { color: "#999" },
-  outActive: { backgroundColor: "#999", borderColor: "#999" },
+  outButton: { borderColor: theme.colors.textMuted, backgroundColor: "transparent" },
+  outText: { color: theme.colors.textMuted },
+  outActive: { backgroundColor: theme.colors.textMuted, borderColor: theme.colors.textMuted },
 });

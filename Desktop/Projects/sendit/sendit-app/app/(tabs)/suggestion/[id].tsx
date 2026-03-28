@@ -10,6 +10,7 @@ import { SuggestionCard } from "@/components/suggestion/SuggestionCard";
 import { VoteButtons } from "@/components/commitment/VoteButtons";
 import { CommitmentTally } from "@/components/commitment/CommitmentTally";
 import { ReceiptWall } from "@/components/commitment/ReceiptWall";
+import { theme } from "@/constants/Theme";
 
 type VoteStatus = "in" | "maybe" | "out";
 
@@ -118,7 +119,7 @@ export default function SuggestionScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d4562a" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -183,11 +184,11 @@ export default function SuggestionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorText: { fontSize: 16, color: "#999" },
+  container: { flex: 1, backgroundColor: theme.colors.bg },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.bg },
+  errorText: { fontSize: 16, color: theme.colors.textSecondary },
   header: { padding: 20, paddingTop: 60 },
-  headerTitle: { fontSize: 28, fontWeight: "bold", color: "#333" },
+  headerTitle: { fontSize: 28, fontWeight: "bold", color: theme.colors.text },
   section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#333", marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 12 },
 });
