@@ -12,6 +12,7 @@
     "@react-navigation/native": "^7.1.33",
     "@supabase/supabase-js": "^2.100.1",
     "expo": "55.0.10-canary-20260328-2049187",
+    "expo-clipboard": "55.0.10-canary-20260328-2049187",
     "expo-constants": "55.0.10-canary-20260328-2049187",
     "expo-crypto": "55.0.11-canary-20260328-2049187",
     "expo-font": "55.0.5-canary-20260328-2049187",
