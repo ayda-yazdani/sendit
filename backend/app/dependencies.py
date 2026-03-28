@@ -2,6 +2,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import Settings, get_settings
+from app.schemas.auth import SupabaseUser
+from app.services.instagram import InstagramReelScraperService
 from app.services.supabase_auth import SupabaseAuthService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -17,6 +19,12 @@ def get_supabase_auth_service(
     )
 
 
+def get_instagram_reel_scraper_service(
+    request: Request,
+) -> InstagramReelScraperService:
+    return InstagramReelScraperService(http_client=request.app.state.http_client)
+
+
 def get_access_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> str:
@@ -28,3 +36,28 @@ def get_access_token(
         )
 
     return credentials.credentials
+
+
+async def get_current_user(
+    access_token: str = Depends(get_access_token),
+    auth_service: SupabaseAuthService = Depends(get_supabase_auth_service),
+) -> SupabaseUser:
+    return (await auth_service.get_current_user(access_token)).user
+
+
+async def get_verified_user(
+    user: SupabaseUser = Depends(get_current_user),
+) -> SupabaseUser:
+    if user.is_anonymous:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anonymous users cannot access this resource.",
+        )
+
+    if user.email_confirmed_at or user.phone_confirmed_at or user.confirmed_at:
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="User must have a verified email or phone to access this resource.",
+    )

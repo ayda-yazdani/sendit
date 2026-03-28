@@ -37,6 +37,7 @@ The API will be available at `http://127.0.0.1:8000`.
 - `POST /api/v1/auth/refresh`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/instagram/reels/scrape`
 
 ## Test
 
@@ -49,6 +50,8 @@ uv run pytest
 ## Notes
 
 - `me` and `logout` expect `Authorization: Bearer <access_token>`.
+- `POST /api/v1/instagram/reels/scrape` also expects `Authorization: Bearer <access_token>` and only allows verified Supabase users.
+- The reel scrape endpoint accepts a public `https://www.instagram.com/reel/...` URL and returns structured Open Graph and JSON-LD metadata.
 - `logout` revokes the session in Supabase, but the current access token can remain valid until it expires.
 - If email confirmation is enabled in Supabase, `signup` may return a user without an active session until the email is confirmed.
 - `signup` accepts optional `metadata`, which is forwarded to Supabase as user metadata.

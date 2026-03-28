@@ -1,16 +1,12 @@
-import os
-import sys
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
-os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", "test-key")
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from app.dependencies import get_supabase_auth_service
+from app.dependencies import (
+    get_instagram_reel_scraper_service,
+    get_supabase_auth_service,
+)
 from app.main import app
 from app.schemas.auth import (
     AuthResponse,
@@ -21,6 +17,7 @@ from app.schemas.auth import (
     SupabaseUser,
     UserResponse,
 )
+from app.schemas.instagram import InstagramReelScrapeRequest, InstagramReelScrapeResponse
 
 
 class StubSupabaseAuthService:
@@ -70,11 +67,35 @@ class StubSupabaseAuthService:
     async def get_current_user(self, access_token: str) -> UserResponse:
         self.current_user_token = access_token
         return UserResponse(
-            user=SupabaseUser(id="user-123", email="user@example.com")
+            user=SupabaseUser(
+                id="user-123",
+                email="user@example.com",
+                email_confirmed_at="2026-03-28T12:00:00Z",
+            )
         )
 
     async def sign_out(self, access_token: str) -> None:
         self.logout_token = access_token
+
+
+class StubInstagramReelScraperService:
+    def __init__(self) -> None:
+        self.request_payload: InstagramReelScrapeRequest | None = None
+
+    async def scrape_reel(
+        self, payload: InstagramReelScrapeRequest
+    ) -> InstagramReelScrapeResponse:
+        self.request_payload = payload
+        return InstagramReelScrapeResponse(
+            requested_url=payload.url,
+            resolved_url="https://www.instagram.com/reel/abc123/",
+            canonical_url="https://www.instagram.com/reel/abc123/",
+            reel_id="abc123",
+            title="Example reel",
+            description="Example description",
+            thumbnail_url="https://cdn.example.com/thumb.jpg",
+            open_graph={"og:title": "Example reel"},
+        )
 
 
 @pytest.fixture
@@ -83,8 +104,19 @@ def stub_auth_service() -> StubSupabaseAuthService:
 
 
 @pytest.fixture
-def client(stub_auth_service: StubSupabaseAuthService) -> Generator[TestClient, None, None]:
+def stub_instagram_scraper_service() -> StubInstagramReelScraperService:
+    return StubInstagramReelScraperService()
+
+
+@pytest.fixture
+def client(
+    stub_auth_service: StubSupabaseAuthService,
+    stub_instagram_scraper_service: StubInstagramReelScraperService,
+) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_supabase_auth_service] = lambda: stub_auth_service
+    app.dependency_overrides[get_instagram_reel_scraper_service] = (
+        lambda: stub_instagram_scraper_service
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -180,3 +212,54 @@ def test_logout_revokes_session(
     assert response.status_code == 204
     assert response.text == ""
     assert stub_auth_service.logout_token == "access-token"
+
+
+def test_scrape_reel_requires_verified_bearer_token(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/instagram/reels/scrape",
+        json={"url": "https://www.instagram.com/reel/abc123/"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing bearer token."}
+
+
+def test_scrape_reel_returns_metadata_for_verified_user(
+    client: TestClient,
+    stub_instagram_scraper_service: StubInstagramReelScraperService,
+) -> None:
+    response = client.post(
+        "/api/v1/instagram/reels/scrape",
+        json={"url": "https://www.instagram.com/reel/abc123/"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert stub_instagram_scraper_service.request_payload is not None
+    assert (
+        str(stub_instagram_scraper_service.request_payload.url)
+        == "https://www.instagram.com/reel/abc123/"
+    )
+    assert response.json()["reel_id"] == "abc123"
+    assert response.json()["title"] == "Example reel"
+
+
+def test_scrape_reel_rejects_unverified_user(
+    client: TestClient,
+    stub_auth_service: StubSupabaseAuthService,
+) -> None:
+    async def unverified_current_user(_: str) -> UserResponse:
+        return UserResponse(user=SupabaseUser(id="user-123", email="user@example.com"))
+
+    stub_auth_service.get_current_user = unverified_current_user
+
+    response = client.post(
+        "/api/v1/instagram/reels/scrape",
+        json={"url": "https://www.instagram.com/reel/abc123/"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "User must have a verified email or phone to access this resource."
+    }
