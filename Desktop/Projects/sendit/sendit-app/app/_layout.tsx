@@ -13,6 +13,7 @@ import {
   Nunito_800ExtraBold,
   Nunito_900Black,
 } from "@expo-google-fonts/nunito";
+import { RubikBubbles_400Regular } from "@expo-google-fonts/rubik-bubbles";
 
 import { useAuthStore } from "@/lib/stores/auth-store";
 
@@ -31,6 +32,7 @@ export default function RootLayout() {
     Nunito_700Bold,
     Nunito_800ExtraBold,
     Nunito_900Black,
+    RubikBubbles_400Regular,
   });
   const { isInitialized, initialize } = useAuthStore();
 

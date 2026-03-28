@@ -91,7 +91,7 @@ export default function BoardListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: theme.colors.bg },
   loading: { fontSize: 16, color: theme.colors.textSecondary, textAlign: "center", marginTop: 100, fontFamily: theme.fonts.regular },
-  title: { fontSize: 36, fontWeight: "bold", color: theme.colors.warm, marginBottom: 4, fontFamily: theme.fonts.black },
+  title: { fontSize: 40, color: theme.colors.warm, marginBottom: 4, fontFamily: theme.fonts.display },
   subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 16, fontFamily: theme.fonts.regular },
   emptyState: { alignItems: "center", marginVertical: 40 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },

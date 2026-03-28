@@ -44,6 +44,7 @@ export const theme = {
     bold: "Nunito_700Bold",
     extrabold: "Nunito_800ExtraBold",
     black: "Nunito_900Black",
+    display: "RubikBubbles_400Regular",
   },
 
   // Common styles
