@@ -6,6 +6,7 @@ from app.schemas.auth import SupabaseUser
 from app.services.instagram import InstagramReelScraperService
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.tiktok import TikTokVideoScraperService
+from app.services.video_frames import VideoFrameService
 from app.services.youtube import YouTubeShortsScraperService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -24,19 +25,28 @@ def get_supabase_auth_service(
 def get_instagram_reel_scraper_service(
     request: Request,
 ) -> InstagramReelScraperService:
-    return InstagramReelScraperService(http_client=request.app.state.http_client)
+    return InstagramReelScraperService(
+        http_client=request.app.state.http_client,
+        frame_service=VideoFrameService(),
+    )
 
 
 def get_tiktok_video_scraper_service(
     request: Request,
 ) -> TikTokVideoScraperService:
-    return TikTokVideoScraperService(http_client=request.app.state.http_client)
+    return TikTokVideoScraperService(
+        http_client=request.app.state.http_client,
+        frame_service=VideoFrameService(),
+    )
 
 
 def get_youtube_shorts_scraper_service(
     request: Request,
 ) -> YouTubeShortsScraperService:
-    return YouTubeShortsScraperService(http_client=request.app.state.http_client)
+    return YouTubeShortsScraperService(
+        http_client=request.app.state.http_client,
+        frame_service=VideoFrameService(),
+    )
 
 
 def get_access_token(

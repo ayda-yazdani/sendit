@@ -1,5 +1,8 @@
 import json
+import os
 import re
+import shutil
+import tempfile
 from datetime import UTC, datetime
 from typing import Any
 
@@ -14,17 +17,25 @@ from app.schemas.tiktok import (
 from app.services.social_scrape import (
     DEFAULT_SCRAPE_USER_AGENT,
     MetadataHTMLParser,
+    collect_thumbnail_urls,
     extract_open_graph,
     parse_json_ld_blocks,
     pick_primary_object,
     pick_string,
     pick_thumbnail,
+    unique_nonempty_strings,
 )
+from app.services.video_frames import VideoFrameService
 
 
 class TikTokVideoScraperService:
-    def __init__(self, http_client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        frame_service: VideoFrameService | None = None,
+    ) -> None:
         self._http_client = http_client
+        self._frame_service = frame_service or VideoFrameService()
 
     async def scrape_video(
         self, payload: TikTokVideoScrapeRequest
@@ -131,6 +142,18 @@ class TikTokVideoScraperService:
         if canonical_url is None and video_id is not None:
             canonical_url = f"https://www.tiktok.com/video/{video_id}"
 
+        duration = pick_string(primary_video, "duration") or self._extract_duration(
+            item_payload
+        )
+        temp_video_path = self._download_best_video_file(str(payload.url))
+        try:
+            frames = await self._frame_service.extract_frame_captures(
+                video_url=temp_video_path or video_url,
+                duration=duration,
+            )
+        finally:
+            self._cleanup_temp_video_path(temp_video_path)
+
         return TikTokVideoScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
@@ -139,6 +162,15 @@ class TikTokVideoScraperService:
             title=title,
             description=description,
             thumbnail_url=thumbnail_url,
+            preview_image_urls=unique_nonempty_strings(
+                open_graph.get("og:image"),
+                parser.meta_tags.get("twitter:image"),
+                *collect_thumbnail_urls(primary_video),
+                self._extract_video_field(item_payload, "cover"),
+                self._extract_video_field(item_payload, "dynamicCover"),
+                self._extract_video_field(item_payload, "originCover"),
+            ),
+            frames=frames,
             video_url=video_url,
             embed_url=pick_string(primary_video, "embedUrl")
             or self._build_embed_url(video_id),
@@ -147,8 +179,7 @@ class TikTokVideoScraperService:
             published_at=pick_string(primary_video, "uploadDate")
             or pick_string(primary_video, "datePublished")
             or self._extract_published_at(item_payload),
-            duration=pick_string(primary_video, "duration")
-            or self._extract_duration(item_payload),
+            duration=duration,
             open_graph=open_graph,
             json_ld=json_ld_documents,
         )
@@ -331,3 +362,39 @@ class TikTokVideoScraperService:
         if video_id is None:
             return None
         return f"https://www.tiktok.com/embed/{video_id}"
+
+    def _download_best_video_file(self, url: str) -> str | None:
+        try:
+            from yt_dlp import YoutubeDL
+        except ImportError:
+            return None
+
+        temp_dir = tempfile.mkdtemp(prefix="sendit-tiktok-frames-")
+        outtmpl = os.path.join(temp_dir, "video.%(ext)s")
+        try:
+            with YoutubeDL(
+                {
+                    "quiet": True,
+                    "no_warnings": True,
+                    "format": "bestvideo*+bestaudio/bestvideo*/best",
+                    "outtmpl": outtmpl,
+                    "merge_output_format": "mp4",
+                }
+            ) as ydl:
+                ydl.download([url])
+        except Exception:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None
+
+        for entry in sorted(os.listdir(temp_dir)):
+            path = os.path.join(temp_dir, entry)
+            if os.path.isfile(path):
+                return path
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
+
+    def _cleanup_temp_video_path(self, path: str | None) -> None:
+        if not path:
+            return
+        shutil.rmtree(os.path.dirname(path), ignore_errors=True)

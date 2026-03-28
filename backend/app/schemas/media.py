@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, TypeAdapter, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 
 class StrictRequestModel(BaseModel):
@@ -28,6 +28,12 @@ class MediaUser(BaseModel):
     profile_url: AnyHttpUrl | None = None
 
 
+class MediaFrame(BaseModel):
+    image_url: str
+    timestamp_seconds: float
+    timestamp_text: str
+
+
 class MediaScrapeResponse(BaseModel):
     platform: Literal["instagram", "tiktok", "youtube"]
     requested_url: AnyHttpUrl
@@ -37,6 +43,8 @@ class MediaScrapeResponse(BaseModel):
     title: str | None = None
     description: str | None = None
     cover_image_url: AnyHttpUrl | None = None
+    preview_image_urls: list[AnyHttpUrl] = Field(default_factory=list)
+    frames: list[MediaFrame] = Field(default_factory=list)
     video_url: AnyHttpUrl | None = None
     embed_url: AnyHttpUrl | None = None
     post_date: datetime | None = None

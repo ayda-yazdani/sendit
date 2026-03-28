@@ -3,7 +3,23 @@ import pytest
 from fastapi import HTTPException
 
 from app.schemas.tiktok import TikTokVideoScrapeRequest
+from app.schemas.media import MediaFrame
 from app.services.tiktok import TikTokVideoScraperService
+
+EXPECTED_FRAMES = [
+    MediaFrame(
+        image_url=f"data:image/jpeg;base64,tiktok-{index}",
+        timestamp_seconds=float(index * 2),
+        timestamp_text=f"0:{index * 2:02d}",
+    )
+    for index in range(8)
+]
+
+
+class StubFrameService:
+    async def extract_frame_captures(self, **_: object) -> list[MediaFrame]:
+        return EXPECTED_FRAMES
+
 
 TIKTOK_HTML = """
 <html>
@@ -103,7 +119,10 @@ async def test_scrape_video_extracts_tiktok_metadata() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = TikTokVideoScraperService(http_client=client)
+        service = TikTokVideoScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_video(
             TikTokVideoScrapeRequest(
                 url="https://www.tiktok.com/@creator/video/9876543210"
@@ -118,6 +137,7 @@ async def test_scrape_video_extracts_tiktok_metadata() -> None:
     assert result.description == "Example TikTok description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
     assert str(result.cover_image_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
     assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
     assert result.author is not None
@@ -137,7 +157,10 @@ async def test_scrape_video_falls_back_to_universal_data_payload() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = TikTokVideoScraperService(http_client=client)
+        service = TikTokVideoScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_video(
             TikTokVideoScrapeRequest(
                 url="https://www.tiktok.com/@creator/video/9876543210"
@@ -149,6 +172,7 @@ async def test_scrape_video_falls_back_to_universal_data_payload() -> None:
     assert result.description == "Creator's short video with original sound"
     assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
     assert str(result.cover_image_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
     assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
     assert result.author is not None
@@ -162,7 +186,10 @@ async def test_scrape_video_returns_404_for_missing_tiktok() -> None:
         return httpx.Response(404, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = TikTokVideoScraperService(http_client=client)
+        service = TikTokVideoScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         with pytest.raises(HTTPException) as exc_info:
             await service.scrape_video(
                 TikTokVideoScrapeRequest(
@@ -185,7 +212,10 @@ async def test_scrape_video_returns_partial_response_when_metadata_cannot_be_ext
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = TikTokVideoScraperService(http_client=client)
+        service = TikTokVideoScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_video(
             TikTokVideoScrapeRequest(
                 url="https://www.tiktok.com/@creator/video/empty123"
@@ -198,6 +228,7 @@ async def test_scrape_video_returns_partial_response_when_metadata_cannot_be_ext
     assert result.title is None
     assert result.description is None
     assert result.thumbnail_url is None
+    assert result.frames == EXPECTED_FRAMES
     assert result.video_url is None
 
 
@@ -212,7 +243,10 @@ async def test_scrape_video_falls_back_to_sparse_meta_tags() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        service = TikTokVideoScraperService(http_client=client)
+        service = TikTokVideoScraperService(
+            http_client=client,
+            frame_service=StubFrameService(),
+        )
         result = await service.scrape_video(
             TikTokVideoScrapeRequest(
                 url="https://www.tiktok.com/@creator/video/9876543210"
@@ -223,6 +257,6 @@ async def test_scrape_video_falls_back_to_sparse_meta_tags() -> None:
     assert result.title == "Creator on TikTok"
     assert result.description == "A sparse TikTok page"
     assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert result.frames == EXPECTED_FRAMES
     assert str(result.canonical_url) == "https://www.tiktok.com/video/9876543210"
     assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
-

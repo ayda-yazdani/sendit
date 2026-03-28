@@ -2,6 +2,7 @@ from urllib.parse import parse_qs, urlparse
 
 import json
 import re
+from typing import Any
 
 import httpx
 from fastapi import HTTPException, status
@@ -14,17 +15,33 @@ from app.schemas.youtube import (
 from app.services.social_scrape import (
     DEFAULT_SCRAPE_USER_AGENT,
     MetadataHTMLParser,
+    collect_thumbnail_urls,
     extract_open_graph,
     parse_json_ld_blocks,
     pick_primary_object,
     pick_string,
     pick_thumbnail,
+    unique_nonempty_strings,
 )
+from app.services.video_frames import VideoFrameService
 
 
 class YouTubeShortsScraperService:
-    def __init__(self, http_client: httpx.AsyncClient) -> None:
+    _CONSENT_COOKIES = {
+        "CONSENT": "YES+cb.20210328-17-p0.en+FX+667",
+        "SOCS": "CAI",
+    }
+    _CONSENT_COOKIE_HEADER = "; ".join(
+        f"{key}={value}" for key, value in _CONSENT_COOKIES.items()
+    )
+
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        frame_service: VideoFrameService | None = None,
+    ) -> None:
         self._http_client = http_client
+        self._frame_service = frame_service or VideoFrameService()
 
     async def scrape_short(
         self, payload: YouTubeShortScrapeRequest
@@ -118,6 +135,16 @@ class YouTubeShortsScraperService:
                 detail="Could not extract YouTube Short metadata from the response.",
             )
 
+        duration = pick_string(primary_video, "duration") or self._extract_player_duration(
+            player_response
+        )
+        frame_video_url = self._extract_best_video_stream_url(str(payload.url))
+        frames = await self._frame_service.extract_frame_captures(
+            video_url=frame_video_url or video_url,
+            duration=duration,
+            storyboard_spec=self._extract_storyboard_spec(response.text),
+        )
+
         return YouTubeShortScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
@@ -126,14 +153,21 @@ class YouTubeShortsScraperService:
             title=title,
             description=description,
             thumbnail_url=thumbnail_url,
+            preview_image_urls=self._extract_preview_images(
+                primary_video,
+                player_response,
+                open_graph,
+                parser.meta_tags,
+                oembed,
+            ),
+            frames=frames,
             video_url=video_url,
             embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
             channel=self._extract_channel(primary_video, player_response, oembed),
             published_at=pick_string(primary_video, "uploadDate")
             or pick_string(primary_video, "datePublished"),
-            duration=pick_string(primary_video, "duration")
-            or self._extract_player_duration(player_response),
+            duration=duration,
             open_graph=open_graph,
             json_ld=json_ld_documents,
         )
@@ -142,6 +176,7 @@ class YouTubeShortsScraperService:
         headers = {
             "User-Agent": DEFAULT_SCRAPE_USER_AGENT,
             "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": self._CONSENT_COOKIE_HEADER,
         }
 
         try:
@@ -156,10 +191,6 @@ class YouTubeShortsScraperService:
                     consent_url,
                     follow_redirects=True,
                     headers=headers,
-                    cookies={
-                        "CONSENT": "YES+cb.20210328-17-p0.en+FX+667",
-                        "SOCS": "CAI",
-                    },
                 )
             return response
         except httpx.TimeoutException as exc:
@@ -267,6 +298,69 @@ class YouTubeShortsScraperService:
                 return payload
         return None
 
+    def _extract_storyboard_spec(self, html: str) -> str | None:
+        match = re.search(
+            r'"playerStoryboardSpecRenderer":\{"spec":"([^"]+)"',
+            html,
+        )
+        return match.group(1) if match else None
+
+    def _extract_best_video_stream_url(self, url: str) -> str | None:
+        try:
+            from yt_dlp import YoutubeDL
+        except ImportError:
+            return None
+
+        options = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "extract_flat": False,
+        }
+
+        try:
+            with YoutubeDL(options) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception:
+            return None
+
+        if not isinstance(info, dict):
+            return None
+        return self._select_best_video_format_url(info)
+
+    def _select_best_video_format_url(self, info: dict[str, Any]) -> str | None:
+        formats = info.get("formats")
+        if not isinstance(formats, list):
+            return None
+
+        candidates: list[dict[str, Any]] = []
+        for item in formats:
+            if not isinstance(item, dict):
+                continue
+            if item.get("vcodec") in (None, "none"):
+                continue
+            url = item.get("url")
+            if not isinstance(url, str) or not url:
+                continue
+            candidates.append(item)
+
+        if not candidates:
+            return None
+
+        def sort_key(item: dict[str, Any]) -> tuple[int, int, int, int]:
+            ext = item.get("ext")
+            protocol = item.get("protocol")
+            return (
+                int(item.get("height") or 0),
+                int(item.get("width") or 0),
+                int(item.get("fps") or 0),
+                int((ext == "mp4") or (protocol == "https")),
+            )
+
+        best = max(candidates, key=sort_key)
+        url = best.get("url")
+        return url if isinstance(url, str) and url else None
+
     def _extract_player_title(
         self, player_response: dict[str, object] | None
     ) -> str | None:
@@ -282,21 +376,28 @@ class YouTubeShortsScraperService:
     def _extract_player_thumbnail(
         self, player_response: dict[str, object] | None
     ) -> str | None:
+        thumbnails = self._extract_player_thumbnail_urls(player_response)
+        return thumbnails[-1] if thumbnails else None
+
+    def _extract_player_thumbnail_urls(
+        self, player_response: dict[str, object] | None
+    ) -> list[str]:
         video_details = self._extract_player_dict(player_response, "videoDetails")
         if not isinstance(video_details, dict):
-            return None
+            return []
         thumbnail = video_details.get("thumbnail")
         if not isinstance(thumbnail, dict):
-            return None
+            return []
         thumbnails = thumbnail.get("thumbnails")
         if not isinstance(thumbnails, list):
-            return None
-        for item in reversed(thumbnails):
+            return []
+        results: list[str] = []
+        for item in thumbnails:
             if isinstance(item, dict):
                 url = item.get("url")
                 if isinstance(url, str) and url:
-                    return url
-        return None
+                    results.append(url)
+        return results
 
     def _extract_player_duration(
         self, player_response: dict[str, object] | None
@@ -378,3 +479,19 @@ class YouTubeShortsScraperService:
             return None
         match = re.search(r"youtube\.com/channel/([^/?#]+)/?", url)
         return match.group(1) if match else None
+
+    def _extract_preview_images(
+        self,
+        primary_video: dict[str, object] | None,
+        player_response: dict[str, object] | None,
+        open_graph: dict[str, str],
+        meta_tags: dict[str, str],
+        oembed: dict[str, object] | None,
+    ) -> list[str]:
+        return unique_nonempty_strings(
+            open_graph.get("og:image"),
+            meta_tags.get("twitter:image"),
+            *collect_thumbnail_urls(primary_video),
+            *self._extract_player_thumbnail_urls(player_response),
+            self._extract_oembed_string(oembed, "thumbnail_url"),
+        )

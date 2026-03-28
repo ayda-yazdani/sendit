@@ -114,3 +114,32 @@ def pick_thumbnail(payload: dict[str, Any] | None) -> str | None:
         return thumbnail
 
     return None
+
+
+def collect_thumbnail_urls(payload: dict[str, Any] | None) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+
+    thumbnail = payload.get("thumbnailUrl")
+    if isinstance(thumbnail, str):
+        return [thumbnail]
+
+    if not isinstance(thumbnail, list):
+        return []
+
+    results: list[str] = []
+    for item in thumbnail:
+        if isinstance(item, str) and item:
+            results.append(item)
+    return results
+
+
+def unique_nonempty_strings(*values: str | None) -> list[str]:
+    results: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        results.append(value)
+    return results

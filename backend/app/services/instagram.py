@@ -11,17 +11,25 @@ from app.schemas.instagram import (
 from app.services.social_scrape import (
     DEFAULT_SCRAPE_USER_AGENT,
     MetadataHTMLParser,
+    collect_thumbnail_urls,
     extract_open_graph,
     parse_json_ld_blocks,
     pick_primary_object,
     pick_string,
     pick_thumbnail,
+    unique_nonempty_strings,
 )
+from app.services.video_frames import VideoFrameService
 
 
 class InstagramReelScraperService:
-    def __init__(self, http_client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        http_client: httpx.AsyncClient,
+        frame_service: VideoFrameService | None = None,
+    ) -> None:
         self._http_client = http_client
+        self._frame_service = frame_service or VideoFrameService()
 
     async def scrape_reel(
         self, payload: InstagramReelScrapeRequest
@@ -106,6 +114,12 @@ class InstagramReelScraperService:
                 detail="Could not extract Instagram reel metadata from the response.",
             )
 
+        duration = pick_string(primary_video, "duration")
+        frames = await self._frame_service.extract_frame_captures(
+            video_url=video_url,
+            duration=duration,
+        )
+
         return InstagramReelScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
@@ -114,12 +128,18 @@ class InstagramReelScraperService:
             title=title,
             description=description,
             thumbnail_url=thumbnail_url,
+            preview_image_urls=unique_nonempty_strings(
+                open_graph.get("og:image"),
+                parser.meta_tags.get("twitter:image"),
+                *collect_thumbnail_urls(primary_video),
+            ),
+            frames=frames,
             video_url=video_url,
             embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
             author=author,
             published_at=pick_string(primary_video, "uploadDate"),
-            duration=pick_string(primary_video, "duration"),
+            duration=duration,
             open_graph=open_graph,
             json_ld=json_ld_documents,
         )
