@@ -12,6 +12,7 @@ import { ExtractionCard } from "@/components/extraction/ExtractionCard";
 import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
 import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 import { TasteProfileSection } from "@/components/board/TasteProfile";
+import { IdentityCard } from "@/components/board/IdentityCard";
 import { useTasteStore } from "@/lib/stores/taste-store";
 
 interface Reel {
@@ -181,6 +182,18 @@ export default function BoardDetailScreen() {
             <MemberList members={activeBoardMembers} />
           )}
         </View>
+
+        {/* Identity Card */}
+        {tasteProfile?.identity_label && tasteProfile?.profile_data && activeBoard && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Group Identity</Text>
+            <IdentityCard
+              boardName={activeBoard.name}
+              identityLabel={tasteProfile.identity_label}
+              profileData={tasteProfile.profile_data}
+            />
+          </View>
+        )}
 
         {/* Suggestion */}
         <View style={styles.section}>

@@ -146,9 +146,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Check for time-sensitive events (dates in next 14 days)
+    const now = new Date();
+    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const urgentEvents = (reels || []).filter(r => {
+      if (r.classification !== "real_event") return false;
+      const eventDate = r.extraction_data?.date;
+      if (!eventDate) return false;
+      const d = new Date(eventDate);
+      return d >= now && d <= twoWeeksOut;
+    });
+
     // Build prompt
     const reelSummaries = (reels || []).map((r, i) =>
-      `[${i}] ${r.platform} | ${r.classification || "unclassified"} | ${r.extraction_data?.title || r.extraction_data?.description?.slice(0, 80) || "no title"}`
+      `[${i}] ${r.platform} | ${r.classification || "unclassified"} | ${r.extraction_data?.title || r.extraction_data?.description?.slice(0, 80) || "no title"}${r.extraction_data?.date ? ` | DATE: ${r.extraction_data.date}` : ""}`
     ).join("\n");
 
     let userPrompt = `Here is a friend group's taste profile and shared reels. Generate ONE specific plan suggestion.
@@ -165,6 +176,10 @@ ${reelSummaries}`;
       userPrompt += `\n\nCALENDAR: The group is mutually free during these windows:\n${freeWindows.slice(0, 10).join("\n")}\nSuggest a time within one of these windows.`;
     } else {
       userPrompt += `\n\nNo calendar data available. Suggest a reasonable time based on the activity type.`;
+    }
+
+    if (urgentEvents.length > 0) {
+      userPrompt += `\n\nURGENT: ${urgentEvents.length} reel(s) are about REAL EVENTS happening in the next 14 days. STRONGLY prefer suggesting one of these time-sensitive events over a general vibe suggestion. These events have dates and will expire.`;
     }
 
     if (exclude_summary) {
