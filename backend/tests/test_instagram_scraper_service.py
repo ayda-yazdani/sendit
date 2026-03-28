@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from app.schemas.instagram import InstagramReelScrapeRequest
 from app.services.instagram import InstagramReelScraperService
@@ -71,3 +72,47 @@ async def test_scrape_reel_extracts_open_graph_and_json_ld_metadata() -> None:
     assert result.author.username == "example_creator"
     assert result.open_graph["og:site_name"] == "Instagram"
     assert result.json_ld[0]["@type"] == "VideoObject"
+
+
+@pytest.mark.anyio
+async def test_scrape_reel_returns_404_for_missing_reel() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = InstagramReelScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_reel(
+                InstagramReelScrapeRequest(
+                    url="https://www.instagram.com/reel/missing123/"
+                )
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Instagram reel not found."
+
+
+@pytest.mark.anyio
+async def test_scrape_reel_returns_502_when_metadata_cannot_be_extracted() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html><body>No metadata here</body></html>",
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = InstagramReelScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_reel(
+                InstagramReelScrapeRequest(
+                    url="https://www.instagram.com/reel/empty123/"
+                )
+            )
+
+    assert exc_info.value.status_code == 502
+    assert (
+        exc_info.value.detail
+        == "Could not extract Instagram reel metadata from the response."
+    )

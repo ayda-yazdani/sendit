@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from app.schemas.youtube import YouTubeShortScrapeRequest
 from app.services.youtube import YouTubeShortsScraperService
@@ -68,3 +69,43 @@ async def test_scrape_short_extracts_youtube_metadata() -> None:
     assert result.channel.handle == "shortscreator"
     assert result.channel.channel_id == "UC123456789"
     assert result.open_graph["og:site_name"] == "YouTube"
+
+
+@pytest.mark.anyio
+async def test_scrape_short_returns_404_for_missing_short() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_short(
+                YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/missing")
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "YouTube Short not found."
+
+
+@pytest.mark.anyio
+async def test_scrape_short_returns_502_when_metadata_cannot_be_extracted() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html><body>No metadata here</body></html>",
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_short(
+                YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/empty123")
+            )
+
+    assert exc_info.value.status_code == 502
+    assert (
+        exc_info.value.detail
+        == "Could not extract YouTube Short metadata from the response."
+    )

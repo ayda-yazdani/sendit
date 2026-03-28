@@ -78,7 +78,9 @@ class InstagramReelScraperService:
             or pick_string(primary_video, "contentUrl")
         )
 
-        if reel_id is None and not any([title, description, thumbnail_url, video_url]):
+        if not any(
+            [title, description, thumbnail_url, video_url, open_graph, json_ld_documents]
+        ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not extract Instagram reel metadata from the response.",

@@ -365,3 +365,39 @@ def test_scrape_youtube_short_returns_metadata_for_verified_user(
     )
     assert response.json()["short_id"] == "xyz987"
     assert response.json()["title"] == "Example Short"
+
+
+def test_scrape_instagram_reel_rejects_invalid_url_for_verified_user(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/instagram/reels/scrape",
+        json={"url": "https://www.example.com/not-a-reel"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_scrape_tiktok_video_rejects_invalid_url_for_verified_user(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/tiktok/videos/scrape",
+        json={"url": "https://www.tiktok.com/@creator/not-a-video"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_scrape_youtube_short_rejects_invalid_url_for_verified_user(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/youtube/shorts/scrape",
+        json={"url": "https://www.youtube.com/watch?v=xyz987"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422

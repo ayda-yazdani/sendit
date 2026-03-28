@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from app.schemas.tiktok import TikTokVideoScrapeRequest
 from app.services.tiktok import TikTokVideoScraperService
@@ -71,3 +72,47 @@ async def test_scrape_video_extracts_tiktok_metadata() -> None:
     assert result.author is not None
     assert result.author.username == "creator"
     assert result.open_graph["og:site_name"] == "TikTok"
+
+
+@pytest.mark.anyio
+async def test_scrape_video_returns_404_for_missing_tiktok() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = TikTokVideoScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_video(
+                TikTokVideoScrapeRequest(
+                    url="https://www.tiktok.com/@creator/video/missing123"
+                )
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "TikTok video not found."
+
+
+@pytest.mark.anyio
+async def test_scrape_video_returns_502_when_metadata_cannot_be_extracted() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html><body>No metadata here</body></html>",
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = TikTokVideoScraperService(http_client=client)
+        with pytest.raises(HTTPException) as exc_info:
+            await service.scrape_video(
+                TikTokVideoScrapeRequest(
+                    url="https://www.tiktok.com/@creator/video/empty123"
+                )
+            )
+
+    assert exc_info.value.status_code == 502
+    assert (
+        exc_info.value.detail
+        == "Could not extract TikTok video metadata from the response."
+    )
