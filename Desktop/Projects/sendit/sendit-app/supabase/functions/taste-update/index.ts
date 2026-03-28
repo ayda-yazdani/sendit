@@ -24,7 +24,8 @@ Return ONLY valid JSON with keys: activity_types, aesthetic, food_preferences, l
 const REQUIRED_KEYS = ["activity_types", "aesthetic", "food_preferences", "location_patterns", "price_range", "humour_style", "platform_mix"];
 
 async function callDeepSeekWithRetry(userPrompt: string, maxRetries = 1): Promise<string> {
-  const apiKey = Deno.env.get("DEEPSEEK_API_KEY") || "***REMOVED***";
+  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+  if (!apiKey) throw new Error("DEEPSEEK_API_KEY not set");
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
