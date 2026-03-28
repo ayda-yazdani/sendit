@@ -29,7 +29,15 @@ uv run uvicorn app.main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-Open `http://127.0.0.1:8000/api/v1/` for the built-in DEV tester webapp. It serves real `HTML` and `JavaScript` files from the backend so you can sign in, paste a media URL, and inspect the returned payload.
+Open `http://127.0.0.1:8000/api/v1/` for the built-in DEV tester webapp. The built assets are served from the backend, and the React source lives in `backend/tester-app/`.
+
+If you update the tester UI, rebuild it before running the backend:
+
+```bash
+cd backend/tester-app
+npm install
+npm run build
+```
 
 ## Endpoints
 

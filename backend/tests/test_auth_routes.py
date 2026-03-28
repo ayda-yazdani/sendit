@@ -197,16 +197,26 @@ def test_tester_page_renders_webapp(client: TestClient) -> None:
     assert response.status_code == 200
     assert "Sendit DEV Tester" in response.text
     assert "DEV" in response.text
-    assert "/static/tester/app.js" in response.text
-    assert "The backend decides the platform." in response.text
+    assert '<div id="root"></div>' in response.text
+    assert "/static/tester/dist/assets/tester.js" in response.text
+    assert "/static/tester/dist/assets/tester.css" in response.text
 
 
 def test_tester_javascript_is_served(client: TestClient) -> None:
-    response = client.get("/static/tester/app.js")
+    response = client.get("/static/tester/dist/assets/tester.js")
 
     assert response.status_code == 200
-    assert "fetchMedia" in response.text
+    assert 'createRoot(document.getElementById("root"))' in response.text
+    assert "sendit-tester-token" in response.text
     assert "/api/v1/media/scrape" in response.text
+
+
+def test_tester_stylesheet_is_served(client: TestClient) -> None:
+    response = client.get("/static/tester/dist/assets/tester.css")
+
+    assert response.status_code == 200
+    assert ".dev-badge" in response.text
+    assert ".app-shell" in response.text
 
 
 def test_signup_returns_created_auth_payload(
