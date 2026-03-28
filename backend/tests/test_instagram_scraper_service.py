@@ -37,6 +37,18 @@ INSTAGRAM_HTML = """
 </html>
 """
 
+INSTAGRAM_SPARSE_HTML = """
+<html>
+  <head>
+    <link rel="canonical" href="https://www.instagram.com/reel/abc123/" />
+    <meta name="twitter:title" content="Sparse reel title" />
+    <meta name="description" content="Sparse reel description" />
+    <meta name="twitter:image" content="https://cdn.example.com/sparse-instagram-thumb.jpg" />
+  </head>
+  <body></body>
+</html>
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_reel_extracts_open_graph_and_json_ld_metadata() -> None:
@@ -77,6 +89,32 @@ async def test_scrape_reel_extracts_open_graph_and_json_ld_metadata() -> None:
 
 
 @pytest.mark.anyio
+async def test_scrape_reel_falls_back_to_non_og_metadata() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=INSTAGRAM_SPARSE_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = InstagramReelScraperService(http_client=client)
+        result = await service.scrape_reel(
+            InstagramReelScrapeRequest(url="https://www.instagram.com/reel/abc123/")
+        )
+
+    assert result.reel_id == "abc123"
+    assert result.title == "Sparse reel title"
+    assert result.description == "Sparse reel description"
+    assert (
+        str(result.thumbnail_url)
+        == "https://cdn.example.com/sparse-instagram-thumb.jpg"
+    )
+    assert str(result.canonical_url) == "https://www.instagram.com/reel/abc123/"
+
+
+@pytest.mark.anyio
 async def test_scrape_reel_returns_404_for_missing_reel() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, request=request)
@@ -95,7 +133,7 @@ async def test_scrape_reel_returns_404_for_missing_reel() -> None:
 
 
 @pytest.mark.anyio
-async def test_scrape_reel_returns_502_when_metadata_cannot_be_extracted() -> None:
+async def test_scrape_reel_returns_partial_response_when_only_reel_id_is_known() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -106,15 +144,12 @@ async def test_scrape_reel_returns_502_when_metadata_cannot_be_extracted() -> No
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         service = InstagramReelScraperService(http_client=client)
-        with pytest.raises(HTTPException) as exc_info:
-            await service.scrape_reel(
-                InstagramReelScrapeRequest(
-                    url="https://www.instagram.com/reel/empty123/"
-                )
-            )
+        result = await service.scrape_reel(
+            InstagramReelScrapeRequest(url="https://www.instagram.com/reel/empty123/")
+        )
 
-    assert exc_info.value.status_code == 502
-    assert (
-        exc_info.value.detail
-        == "Could not extract Instagram reel metadata from the response."
-    )
+    assert result.reel_id == "empty123"
+    assert str(result.canonical_url) == "https://www.instagram.com/reel/empty123/"
+    assert result.title is None
+    assert result.description is None
+    assert result.thumbnail_url is None

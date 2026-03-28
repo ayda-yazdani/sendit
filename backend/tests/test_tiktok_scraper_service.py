@@ -77,6 +77,17 @@ TIKTOK_UNIVERSAL_DATA_HTML = """
 </html>
 """
 
+TIKTOK_SPARSE_META_HTML = """
+<html>
+  <head>
+    <meta name="twitter:title" content="Creator on TikTok" />
+    <meta name="twitter:description" content="A sparse TikTok page" />
+    <meta name="twitter:image" content="https://cdn.example.com/tiktok-thumb.jpg" />
+  </head>
+  <body></body>
+</html>
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_video_extracts_tiktok_metadata() -> None:
@@ -164,7 +175,7 @@ async def test_scrape_video_returns_404_for_missing_tiktok() -> None:
 
 
 @pytest.mark.anyio
-async def test_scrape_video_returns_502_when_metadata_cannot_be_extracted() -> None:
+async def test_scrape_video_returns_partial_response_when_metadata_cannot_be_extracted() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -175,15 +186,43 @@ async def test_scrape_video_returns_502_when_metadata_cannot_be_extracted() -> N
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         service = TikTokVideoScraperService(http_client=client)
-        with pytest.raises(HTTPException) as exc_info:
-            await service.scrape_video(
-                TikTokVideoScrapeRequest(
-                    url="https://www.tiktok.com/@creator/video/empty123"
-                )
+        result = await service.scrape_video(
+            TikTokVideoScrapeRequest(
+                url="https://www.tiktok.com/@creator/video/empty123"
             )
+        )
 
-    assert exc_info.value.status_code == 502
-    assert (
-        exc_info.value.detail
-        == "Could not extract TikTok video metadata from the response."
-    )
+    assert result.video_id == "empty123"
+    assert str(result.canonical_url) == "https://www.tiktok.com/video/empty123"
+    assert str(result.embed_url) == "https://www.tiktok.com/embed/empty123"
+    assert result.title is None
+    assert result.description is None
+    assert result.thumbnail_url is None
+    assert result.video_url is None
+
+
+@pytest.mark.anyio
+async def test_scrape_video_falls_back_to_sparse_meta_tags() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=TIKTOK_SPARSE_META_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = TikTokVideoScraperService(http_client=client)
+        result = await service.scrape_video(
+            TikTokVideoScrapeRequest(
+                url="https://www.tiktok.com/@creator/video/9876543210"
+            )
+        )
+
+    assert result.video_id == "9876543210"
+    assert result.title == "Creator on TikTok"
+    assert result.description == "A sparse TikTok page"
+    assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert str(result.canonical_url) == "https://www.tiktok.com/video/9876543210"
+    assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
+

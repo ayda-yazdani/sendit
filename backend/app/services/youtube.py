@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlparse
+
 import json
 import re
 
@@ -27,25 +29,7 @@ class YouTubeShortsScraperService:
     async def scrape_short(
         self, payload: YouTubeShortScrapeRequest
     ) -> YouTubeShortScrapeResponse:
-        try:
-            response = await self._http_client.get(
-                str(payload.url),
-                follow_redirects=True,
-                headers={
-                    "User-Agent": DEFAULT_SCRAPE_USER_AGENT,
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-            )
-        except httpx.TimeoutException as exc:
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Timed out while fetching the YouTube Short.",
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not fetch the YouTube Short.",
-            ) from exc
+        response = await self._fetch_short_page(str(payload.url))
 
         if response.status_code == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
@@ -66,8 +50,9 @@ class YouTubeShortsScraperService:
         json_ld_documents = parse_json_ld_blocks(parser.json_ld_blocks)
         primary_video = pick_primary_object(json_ld_documents)
         player_response = self._extract_initial_player_response(response.text)
-
-        short_id = self._extract_short_id(str(response.url))
+        short_id = self._extract_short_id(str(response.url)) or self._extract_short_id(
+            str(payload.url)
+        )
         title = (
             open_graph.get("og:title")
             or parser.meta_tags.get("twitter:title")
@@ -94,14 +79,14 @@ class YouTubeShortsScraperService:
             or pick_string(primary_video, "contentUrl")
         )
         canonical_url = open_graph.get("og:url") or parser.canonical_url
+        if canonical_url and "consent.youtube.com" in canonical_url:
+            canonical_url = None
         if canonical_url is None and short_id is not None:
             canonical_url = f"https://www.youtube.com/shorts/{short_id}"
 
         embed_url = pick_string(primary_video, "embedUrl")
-        if embed_url is None and short_id is not None:
-            embed_url = f"https://www.youtube.com/embed/{short_id}"
 
-        if not any(
+        has_any_metadata = any(
             [
                 title,
                 description,
@@ -110,7 +95,24 @@ class YouTubeShortsScraperService:
                 open_graph,
                 json_ld_documents,
             ]
-        ):
+        )
+
+        oembed = None
+        if not has_any_metadata:
+            oembed = await self._fetch_oembed(str(payload.url))
+            title = title or self._extract_oembed_string(oembed, "title")
+            thumbnail_url = thumbnail_url or self._extract_oembed_string(
+                oembed, "thumbnail_url"
+            )
+            embed_url = self._extract_oembed_embed_url(oembed) or embed_url
+            if canonical_url is None and short_id is not None:
+                canonical_url = f"https://www.youtube.com/shorts/{short_id}"
+            has_any_metadata = any([title, thumbnail_url, embed_url])
+
+        if embed_url is None and short_id is not None:
+            embed_url = f"https://www.youtube.com/embed/{short_id}"
+
+        if not has_any_metadata and short_id is None:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not extract YouTube Short metadata from the response.",
@@ -127,7 +129,7 @@ class YouTubeShortsScraperService:
             video_url=video_url,
             embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
-            channel=self._extract_channel(primary_video, player_response),
+            channel=self._extract_channel(primary_video, player_response, oembed),
             published_at=pick_string(primary_video, "uploadDate")
             or pick_string(primary_video, "datePublished"),
             duration=pick_string(primary_video, "duration")
@@ -136,17 +138,90 @@ class YouTubeShortsScraperService:
             json_ld=json_ld_documents,
         )
 
+    async def _fetch_short_page(self, url: str) -> httpx.Response:
+        headers = {
+            "User-Agent": DEFAULT_SCRAPE_USER_AGENT,
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        try:
+            response = await self._http_client.get(
+                url,
+                follow_redirects=True,
+                headers=headers,
+            )
+            if self._is_consent_page(response.url):
+                consent_url = self._extract_continue_url(str(response.url)) or url
+                response = await self._http_client.get(
+                    consent_url,
+                    follow_redirects=True,
+                    headers=headers,
+                    cookies={
+                        "CONSENT": "YES+cb.20210328-17-p0.en+FX+667",
+                        "SOCS": "CAI",
+                    },
+                )
+            return response
+        except httpx.TimeoutException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Timed out while fetching the YouTube Short.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not fetch the YouTube Short.",
+            ) from exc
+
+    async def _fetch_oembed(self, url: str) -> dict[str, object] | None:
+        try:
+            response = await self._http_client.get(
+                "https://www.youtube.com/oembed",
+                params={"url": url, "format": "json"},
+                follow_redirects=True,
+                headers={
+                    "User-Agent": DEFAULT_SCRAPE_USER_AGENT,
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+            )
+        except httpx.HTTPError:
+            return None
+        if response.status_code != status.HTTP_200_OK:
+            return None
+        try:
+            payload = response.json()
+        except ValueError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def _is_consent_page(self, url: httpx.URL) -> bool:
+        return url.host == "consent.youtube.com"
+
+    def _extract_continue_url(self, url: str) -> str | None:
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query)
+        continue_values = query.get("continue")
+        if not continue_values:
+            return None
+        continue_url = continue_values[0]
+        return continue_url if continue_url.startswith("http") else None
+
     def _extract_channel(
         self,
         primary_video: dict[str, object] | None,
         player_response: dict[str, object] | None,
+        oembed: dict[str, object] | None,
     ) -> YouTubeChannel | None:
         if not isinstance(primary_video, dict):
-            return self._extract_channel_from_player_response(player_response)
+            return self._extract_channel_from_player_response(
+                player_response
+            ) or self._extract_channel_from_oembed(oembed)
 
         author_payload = primary_video.get("author")
         if not isinstance(author_payload, dict):
-            return self._extract_channel_from_player_response(player_response)
+            return self._extract_channel_from_player_response(
+                player_response
+            ) or self._extract_channel_from_oembed(oembed)
 
         channel_url = author_payload.get("url")
         channel_url = channel_url if isinstance(channel_url, str) else None
@@ -157,6 +232,20 @@ class YouTubeShortsScraperService:
             channel_id=pick_string(author_payload, "identifier")
             or self._extract_channel_id(channel_url),
             channel_url=channel_url,
+        )
+
+    def _extract_channel_from_oembed(
+        self, oembed: dict[str, object] | None
+    ) -> YouTubeChannel | None:
+        author_name = self._extract_oembed_string(oembed, "author_name")
+        author_url = self._extract_oembed_string(oembed, "author_url")
+        if author_name is None and author_url is None:
+            return None
+        return YouTubeChannel(
+            name=author_name,
+            handle=self._extract_handle(author_url),
+            channel_id=self._extract_channel_id(author_url),
+            channel_url=author_url,
         )
 
     def _extract_initial_player_response(
@@ -259,6 +348,20 @@ class YouTubeShortsScraperService:
             return None
         value = payload.get(key)
         return value if isinstance(value, str) and value else None
+
+    def _extract_oembed_string(
+        self, payload: dict[str, object] | None, key: str
+    ) -> str | None:
+        return self._extract_dict_string(payload, key)
+
+    def _extract_oembed_embed_url(
+        self, payload: dict[str, object] | None
+    ) -> str | None:
+        html = self._extract_oembed_string(payload, "html")
+        if not html:
+            return None
+        match = re.search(r'src=(?:"|\\")([^"\\]+)(?:"|\\")', html)
+        return match.group(1) if match else None
 
     def _extract_short_id(self, url: str) -> str | None:
         match = re.search(r"/shorts/([^/?#]+)/?", url)

@@ -66,21 +66,41 @@ class InstagramReelScraperService:
         primary_video = pick_primary_object(json_ld_documents)
 
         author = self._extract_author(primary_video)
-        reel_id = self._extract_reel_id(str(response.url))
-        title = open_graph.get("og:title") or pick_string(primary_video, "name")
-        description = open_graph.get("og:description") or pick_string(
-            primary_video, "description"
+        reel_id = self._extract_reel_id(str(response.url)) or self._extract_reel_id(
+            str(payload.url)
         )
-        thumbnail_url = open_graph.get("og:image") or pick_thumbnail(primary_video)
+        title = (
+            open_graph.get("og:title")
+            or parser.meta_tags.get("twitter:title")
+            or parser.meta_tags.get("title")
+            or pick_string(primary_video, "name")
+        )
+        description = (
+            open_graph.get("og:description")
+            or parser.meta_tags.get("twitter:description")
+            or parser.meta_tags.get("description")
+            or pick_string(primary_video, "description")
+        )
+        thumbnail_url = (
+            open_graph.get("og:image")
+            or parser.meta_tags.get("twitter:image")
+            or pick_thumbnail(primary_video)
+        )
         video_url = (
             open_graph.get("og:video")
             or open_graph.get("og:video:url")
             or pick_string(primary_video, "contentUrl")
         )
+        canonical_url = open_graph.get("og:url") or parser.canonical_url
+        if canonical_url is None and reel_id is not None:
+            canonical_url = f"https://www.instagram.com/reel/{reel_id}/"
+        embed_url = pick_string(primary_video, "embedUrl")
 
-        if not any(
+        has_any_metadata = any(
             [title, description, thumbnail_url, video_url, open_graph, json_ld_documents]
-        ):
+        )
+
+        if not has_any_metadata and reel_id is None:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not extract Instagram reel metadata from the response.",
@@ -89,13 +109,13 @@ class InstagramReelScraperService:
         return InstagramReelScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
-            canonical_url=open_graph.get("og:url") or parser.canonical_url,
+            canonical_url=canonical_url,
             reel_id=reel_id,
             title=title,
             description=description,
             thumbnail_url=thumbnail_url,
             video_url=video_url,
-            embed_url=pick_string(primary_video, "embedUrl"),
+            embed_url=embed_url,
             site_name=open_graph.get("og:site_name"),
             author=author,
             published_at=pick_string(primary_video, "uploadDate"),

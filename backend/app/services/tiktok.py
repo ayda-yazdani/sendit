@@ -72,20 +72,27 @@ class TikTokVideoScraperService:
         detail_payload = self._extract_video_detail_payload(response.text)
         item_payload = self._extract_item_payload(detail_payload)
 
-        video_id = self._extract_video_id(str(response.url))
+        video_id = self._extract_video_id(str(response.url)) or self._extract_video_id(
+            str(payload.url)
+        )
         title = (
             open_graph.get("og:title")
+            or parser.meta_tags.get("twitter:title")
+            or parser.meta_tags.get("title")
             or pick_string(primary_video, "name")
             or self._extract_share_meta(detail_payload, "title")
         )
         description = (
             open_graph.get("og:description")
+            or parser.meta_tags.get("twitter:description")
+            or parser.meta_tags.get("description")
             or pick_string(primary_video, "description")
             or self._extract_tiktok_description(item_payload)
             or self._extract_share_meta(detail_payload, "desc")
         )
         thumbnail_url = (
             open_graph.get("og:image")
+            or parser.meta_tags.get("twitter:image")
             or pick_thumbnail(primary_video)
             or self._extract_video_field(item_payload, "cover")
         )
@@ -98,7 +105,7 @@ class TikTokVideoScraperService:
         if video_id is None:
             video_id = self._extract_item_string(item_payload, "id")
 
-        if not any(
+        has_any_metadata = any(
             [
                 title,
                 description,
@@ -108,20 +115,26 @@ class TikTokVideoScraperService:
                 json_ld_documents,
                 item_payload,
             ]
-        ):
+        )
+
+        if not has_any_metadata and video_id is None:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not extract TikTok video metadata from the response.",
             )
 
+        canonical_url = (
+            open_graph.get("og:url")
+            or parser.canonical_url
+            or self._build_canonical_url(item_payload, video_id)
+        )
+        if canonical_url is None and video_id is not None:
+            canonical_url = f"https://www.tiktok.com/video/{video_id}"
+
         return TikTokVideoScrapeResponse(
             requested_url=payload.url,
             resolved_url=str(response.url),
-            canonical_url=(
-                open_graph.get("og:url")
-                or parser.canonical_url
-                or self._build_canonical_url(item_payload, video_id)
-            ),
+            canonical_url=canonical_url,
             video_id=video_id,
             title=title,
             description=description,

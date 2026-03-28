@@ -80,6 +80,33 @@ YOUTUBE_PLAYER_RESPONSE_HTML = """
 </html>
 """
 
+YOUTUBE_CONSENT_HTML = """
+<html>
+  <head>
+    <link rel="canonical" href="https://consent.youtube.com/m" />
+  </head>
+  <body>Consent required</body>
+</html>
+"""
+
+YOUTUBE_OEMBED_RESPONSE = """
+{
+  "title": "Popular Memes (Then Vs Now) #shorts #memes #nostalgia",
+  "author_name": "BRANDOMEMES",
+  "author_url": "https://www.youtube.com/@BrandoMemes",
+  "type": "video",
+  "height": 200,
+  "width": 113,
+  "version": "1.0",
+  "provider_name": "YouTube",
+  "provider_url": "https://www.youtube.com/",
+  "thumbnail_height": 360,
+  "thumbnail_width": 480,
+  "thumbnail_url": "https://i.ytimg.com/vi/kgU2-KfUIrE/hq2.jpg",
+  "html": "<iframe width=\\\"113\\\" height=\\\"200\\\" src=\\\"https://www.youtube.com/embed/kgU2-KfUIrE?feature=oembed\\\"></iframe>"
+}
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_short_extracts_youtube_metadata() -> None:
@@ -168,6 +195,79 @@ async def test_scrape_short_falls_back_to_initial_player_response() -> None:
 
 
 @pytest.mark.anyio
+async def test_scrape_short_retries_when_youtube_redirects_to_consent() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "consent.youtube.com":
+            return httpx.Response(
+                200,
+                text=YOUTUBE_CONSENT_HTML,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+                request=request,
+            )
+
+        if "CONSENT" in request.headers.get("cookie", ""):
+            return httpx.Response(
+                200,
+                text=YOUTUBE_PLAYER_RESPONSE_HTML,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+                request=request,
+            )
+
+        return httpx.Response(
+            302,
+            headers={
+                "Location": "https://consent.youtube.com/m?continue=https%3A%2F%2Fwww.youtube.com%2Fshorts%2FkgU2-KfUIrE"
+            },
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        result = await service.scrape_short(
+            YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/kgU2-KfUIrE")
+        )
+
+    assert len(requests) >= 3
+    assert result.title == "Player Response Short"
+    assert result.short_id == "kgU2-KfUIrE"
+
+
+@pytest.mark.anyio
+async def test_scrape_short_falls_back_to_oembed_when_page_metadata_is_blocked() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oembed":
+            return httpx.Response(
+                200,
+                text=YOUTUBE_OEMBED_RESPONSE,
+                headers={"Content-Type": "application/json"},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            text=YOUTUBE_CONSENT_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = YouTubeShortsScraperService(http_client=client)
+        result = await service.scrape_short(
+            YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/kgU2-KfUIrE")
+        )
+
+    assert result.short_id == "kgU2-KfUIrE"
+    assert result.title == "Popular Memes (Then Vs Now) #shorts #memes #nostalgia"
+    assert str(result.thumbnail_url) == "https://i.ytimg.com/vi/kgU2-KfUIrE/hq2.jpg"
+    assert str(result.embed_url) == "https://www.youtube.com/embed/kgU2-KfUIrE?feature=oembed"
+    assert result.channel is not None
+    assert result.channel.name == "BRANDOMEMES"
+    assert result.channel.handle == "BrandoMemes"
+
+
+@pytest.mark.anyio
 async def test_scrape_short_returns_404_for_missing_short() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, request=request)
@@ -184,7 +284,7 @@ async def test_scrape_short_returns_404_for_missing_short() -> None:
 
 
 @pytest.mark.anyio
-async def test_scrape_short_returns_502_when_metadata_cannot_be_extracted() -> None:
+async def test_scrape_short_returns_partial_response_when_only_short_id_is_known() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -195,13 +295,13 @@ async def test_scrape_short_returns_502_when_metadata_cannot_be_extracted() -> N
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         service = YouTubeShortsScraperService(http_client=client)
-        with pytest.raises(HTTPException) as exc_info:
-            await service.scrape_short(
-                YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/empty123")
-            )
+        result = await service.scrape_short(
+            YouTubeShortScrapeRequest(url="https://www.youtube.com/shorts/empty123")
+        )
 
-    assert exc_info.value.status_code == 502
-    assert (
-        exc_info.value.detail
-        == "Could not extract YouTube Short metadata from the response."
-    )
+    assert result.short_id == "empty123"
+    assert str(result.canonical_url) == "https://www.youtube.com/shorts/empty123"
+    assert str(result.embed_url) == "https://www.youtube.com/embed/empty123"
+    assert result.title is None
+    assert result.description is None
+    assert result.thumbnail_url is None

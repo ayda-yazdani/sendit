@@ -24,5 +24,12 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Install dependencies
         run: uv sync --dev --frozen
-      - name: Run tests
+      - name: Run scraper regression tests
+        run: >
+          uv run pytest
+          tests/test_media_service.py
+          tests/test_instagram_scraper_service.py
+          tests/test_tiktok_scraper_service.py
+          tests/test_youtube_scraper_service.py
+      - name: Run full backend test suite
         run: uv run pytest
