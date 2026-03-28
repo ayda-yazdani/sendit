@@ -3,7 +3,6 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 
 export default function ProfileScreen() {
   const { deviceId, googleId } = useAuthStore();
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Profile</Text>

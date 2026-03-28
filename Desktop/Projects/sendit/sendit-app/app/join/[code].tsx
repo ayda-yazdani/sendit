@@ -3,7 +3,6 @@ import { useLocalSearchParams } from "expo-router";
 
 export default function JoinBoardScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Join Board</Text>

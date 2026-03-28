@@ -10,10 +10,7 @@ import { useColorScheme } from "@/components/useColorScheme";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
 export { ErrorBoundary } from "expo-router";
-
-export const unstable_settings = {
-  initialRouteName: "(tabs)",
-};
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,33 +19,18 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
   });
-
   const { isInitialized, initialize } = useAuthStore();
 
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  useEffect(() => { if (error) throw error; }, [error]);
+  useEffect(() => { initialize(); }, [initialize]);
+  useEffect(() => { if (loaded && isInitialized) SplashScreen.hideAsync(); }, [loaded, isInitialized]);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  useEffect(() => {
-    if (loaded && isInitialized) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, isInitialized]);
-
-  if (!loaded || !isInitialized) {
-    return null;
-  }
-
+  if (!loaded || !isInitialized) return null;
   return <RootLayoutNav />;
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>

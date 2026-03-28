@@ -1,4 +1,4 @@
-const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excludes 0/O, 1/I/L
+const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function generateJoinCode(length: number = 6): string {
   let code = "";

@@ -3,7 +3,6 @@ import { useLocalSearchParams } from "expo-router";
 
 export default function SuggestionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Suggestion</Text>

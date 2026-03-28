@@ -1,10 +1,4 @@
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  ViewStyle,
-} from "react-native";
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle } from "react-native";
 
 interface ButtonProps {
   title: string;
@@ -15,46 +9,17 @@ interface ButtonProps {
   style?: ViewStyle;
 }
 
-export function Button({
-  title,
-  onPress,
-  disabled = false,
-  loading = false,
-  variant = "primary",
-  style,
-}: ButtonProps) {
+export function Button({ title, onPress, disabled = false, loading = false, variant = "primary", style }: ButtonProps) {
   const isDisabled = disabled || loading;
-
   return (
     <TouchableOpacity
-      style={[
-        styles.base,
-        variant === "primary" && styles.primary,
-        variant === "secondary" && styles.secondary,
-        variant === "ghost" && styles.ghost,
-        isDisabled && styles.disabled,
-        style,
-      ]}
-      onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.7}
+      style={[styles.base, variant === "primary" && styles.primary, variant === "secondary" && styles.secondary, variant === "ghost" && styles.ghost, isDisabled && styles.disabled, style]}
+      onPress={onPress} disabled={isDisabled} activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === "primary" ? "#fff" : "#d4562a"}
-          size="small"
-        />
+        <ActivityIndicator color={variant === "primary" ? "#fff" : "#d4562a"} size="small" />
       ) : (
-        <Text
-          style={[
-            styles.text,
-            variant === "primary" && styles.primaryText,
-            variant === "secondary" && styles.secondaryText,
-            variant === "ghost" && styles.ghostText,
-          ]}
-        >
-          {title}
-        </Text>
+        <Text style={[styles.text, variant === "primary" && styles.primaryText, variant === "secondary" && styles.secondaryText, variant === "ghost" && styles.ghostText]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
