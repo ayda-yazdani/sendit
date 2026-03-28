@@ -9,6 +9,8 @@ import { MemberList } from "@/components/board/MemberList";
 import { UrlInput } from "@/components/board/UrlInput";
 import { PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
 import { supabase } from "@/lib/supabase";
+import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
+import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 
 interface Reel {
   id: string;
@@ -27,6 +29,7 @@ export default function BoardDetailScreen() {
   const [copied, setCopied] = useState(false);
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
   // Load board if navigated directly
   useEffect(() => {
@@ -60,6 +63,10 @@ export default function BoardDetailScreen() {
         .eq("board_id", id)
         .order("created_at", { ascending: false });
       if (reelData) setReels(reelData);
+
+      // Fetch active suggestion
+      const activeSuggestion = await getActiveSuggestion(id);
+      if (activeSuggestion) setSuggestion(activeSuggestion);
 
       setIsLoading(false);
     };
@@ -180,6 +187,24 @@ export default function BoardDetailScreen() {
             <ActivityIndicator size="small" color="#d4562a" style={{ paddingVertical: 20 }} />
           ) : (
             <MemberList members={activeBoardMembers} />
+          )}
+        </View>
+
+        {/* Suggestion */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Suggestion</Text>
+          {suggestion ? (
+            <SuggestionCard
+              suggestion={suggestion}
+              boardId={id!}
+              onNewSuggestion={(s) => setSuggestion(s)}
+            />
+          ) : (
+            <SuggestionEmpty
+              boardId={id!}
+              hasEnoughReels={reels.length >= 3}
+              onGenerated={(s) => setSuggestion(s)}
+            />
           )}
         </View>
 

@@ -1,0 +1,180 @@
+import { useState } from "react";
+import { View, Text, StyleSheet, Pressable, Linking, ActivityIndicator } from "react-native";
+import { Suggestion, generateSuggestion, archiveSuggestion } from "@/lib/ai/suggestion-engine";
+import { Button } from "@/components/shared/Button";
+
+interface SuggestionCardProps {
+  suggestion: Suggestion;
+  boardId: string;
+  onNewSuggestion: (suggestion: Suggestion) => void;
+}
+
+export function SuggestionCard({ suggestion, boardId, onNewSuggestion }: SuggestionCardProps) {
+  const [showWhy, setShowWhy] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const s = suggestion.suggestion_data;
+
+  const handleBooking = () => {
+    if (s.booking_url) Linking.openURL(s.booking_url);
+  };
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
+    try {
+      await archiveSuggestion(suggestion.id);
+      const result = await generateSuggestion(boardId, s.what);
+      if (result.data) onNewSuggestion(result.data);
+    } catch (err) {
+      console.error("Regenerate failed:", err);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <Text style={styles.label}>SUGGESTED PLAN</Text>
+        <Text style={styles.emoji}>💡</Text>
+      </View>
+
+      <Text style={styles.what}>{s.what}</Text>
+
+      <View style={styles.details}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailIcon}>📍</Text>
+          <Text style={styles.detailText}>{s.where}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailIcon}>📅</Text>
+          <Text style={styles.detailText}>{s.when}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailIcon}>💰</Text>
+          <Text style={styles.detailText}>{s.cost_per_person} per person</Text>
+        </View>
+      </View>
+
+      {/* Why this? */}
+      <Pressable onPress={() => setShowWhy(!showWhy)} style={styles.whyToggle}>
+        <Text style={styles.whyToggleText}>
+          {showWhy ? "Hide reasoning ▲" : "Why this? ▼"}
+        </Text>
+      </Pressable>
+      {showWhy && (
+        <View style={styles.whyBox}>
+          <Text style={styles.whyText}>{s.why}</Text>
+          {s.influenced_by?.length > 0 && (
+            <Text style={styles.influencedBy}>
+              Based on {s.influenced_by.length} reel{s.influenced_by.length !== 1 ? "s" : ""} your group shared
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        {s.booking_url ? (
+          <Button title="Book Now" onPress={handleBooking} style={{ flex: 1, marginRight: 8 }} />
+        ) : null}
+        <Button
+          title={isRegenerating ? "..." : "Different Idea"}
+          onPress={handleRegenerate}
+          variant="secondary"
+          loading={isRegenerating}
+          style={{ flex: 1 }}
+        />
+      </View>
+    </View>
+  );
+}
+
+interface SuggestionEmptyProps {
+  boardId: string;
+  onGenerated: (suggestion: Suggestion) => void;
+  hasEnoughReels: boolean;
+}
+
+export function SuggestionEmpty({ boardId, onGenerated, hasEnoughReels }: SuggestionEmptyProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const result = await generateSuggestion(boardId);
+      if (result.data) onGenerated(result.data);
+      else if (result.message) setError(result.message);
+      else if (result.error) setError(result.error);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyIcon}>💡</Text>
+      <Text style={styles.emptyTitle}>No suggestion yet</Text>
+      {hasEnoughReels ? (
+        <>
+          <Text style={styles.emptyHint}>Ready to generate a plan from your group's taste</Text>
+          <Button
+            title={isGenerating ? "Thinking..." : "Generate Suggestion"}
+            onPress={handleGenerate}
+            loading={isGenerating}
+            style={{ marginTop: 16, width: "100%" }}
+          />
+        </>
+      ) : (
+        <Text style={styles.emptyHint}>Share 3+ reels to unlock AI suggestions</Text>
+      )}
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: "#d4562a",
+    shadowColor: "#d4562a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  label: { fontSize: 11, fontWeight: "700", color: "#d4562a", letterSpacing: 1.5 },
+  emoji: { fontSize: 24 },
+  what: { fontSize: 22, fontWeight: "bold", color: "#333", marginBottom: 16, lineHeight: 28 },
+  details: { gap: 10, marginBottom: 16 },
+  detailRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  detailIcon: { fontSize: 16 },
+  detailText: { fontSize: 15, color: "#555", flex: 1 },
+  whyToggle: { paddingVertical: 8 },
+  whyToggleText: { fontSize: 14, color: "#d4562a", fontWeight: "600" },
+  whyBox: { backgroundColor: "#fdf5f2", borderRadius: 10, padding: 14, marginBottom: 16 },
+  whyText: { fontSize: 14, color: "#666", lineHeight: 20 },
+  influencedBy: { fontSize: 12, color: "#999", marginTop: 8, fontStyle: "italic" },
+  actions: { flexDirection: "row", gap: 8 },
+  emptyCard: {
+    alignItems: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    backgroundColor: "#fdf5f2",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#f0ddd5",
+    borderStyle: "dashed",
+  },
+  emptyIcon: { fontSize: 40, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: "#333", marginBottom: 8 },
+  emptyHint: { fontSize: 14, color: "#999", textAlign: "center" },
+  errorText: { fontSize: 12, color: "#e74c3c", marginTop: 12, textAlign: "center" },
+});
