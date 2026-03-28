@@ -36,6 +36,22 @@ function emptySummary() {
   };
 }
 
+function buildSummaryFromPayload(payload) {
+  return {
+    platform: payload.platform || null,
+    coverImageUrl: payload.cover_image_url || null,
+    duration: payload.duration || null,
+    frames: Array.isArray(payload.frames) ? payload.frames.slice(0, 8) : [],
+    videoUrl: payload.video_url || null,
+    embedUrl: payload.embed_url || null,
+    canonicalUrl:
+      payload.canonical_url || payload.resolved_url || payload.requested_url || null,
+    description: payload.description || "No description returned.",
+    postDate: payload.post_date || "No post date returned.",
+    userText: prettyUser(payload.user),
+  };
+}
+
 function emptyConfigSummary() {
   return {
     apiBaseUrl: "Detecting...",
@@ -132,6 +148,7 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState({ message: "", tone: "" });
   const [fetchStatus, setFetchStatus] = useState({ message: "", tone: "" });
   const [responseText, setResponseText] = useState("{}");
+  const [mediaResponseText, setMediaResponseText] = useState("{}");
   const [summary, setSummary] = useState(emptySummary());
   const [configSummary, setConfigSummary] = useState(emptyConfigSummary());
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
@@ -148,6 +165,8 @@ export default function App() {
   const [geminiSystemPrompt, setGeminiSystemPrompt] = useState(
     "Loading Gemini system prompt...",
   );
+  const [geminiRequestBody, setGeminiRequestBody] = useState("{}");
+  const geminiAttachmentLimit = 8;
 
   useEffect(() => {
     setToken(localStorage.getItem(storageKey) || "");
@@ -172,18 +191,7 @@ export default function App() {
 
   function applyPayload(payload) {
     setVideoPlaybackError("");
-    setSummary({
-      platform: payload.platform || null,
-      coverImageUrl: payload.cover_image_url || null,
-      duration: payload.duration || null,
-      frames: Array.isArray(payload.frames) ? payload.frames.slice(0, 8) : [],
-      videoUrl: payload.video_url || null,
-      embedUrl: payload.embed_url || null,
-      canonicalUrl: payload.canonical_url || payload.resolved_url || payload.requested_url || null,
-      description: payload.description || "No description returned.",
-      postDate: payload.post_date || "No post date returned.",
-      userText: prettyUser(payload.user),
-    });
+    setSummary(buildSummaryFromPayload(payload));
   }
 
   function applyConfigSummary(payload) {
@@ -238,14 +246,49 @@ export default function App() {
     }
   }
 
-  function buildGeminiRequestPayload() {
-    const parts = [];
+  function returnedFrameImages(sourceSummary = summary) {
+    return (sourceSummary.frames || [])
+      .filter((frame) => typeof frame?.image_url === "string" && frame.image_url.startsWith("data:"))
+      .map((frame, index) => ({
+        name: `Frame ${index + 1}${frame.timestamp_text ? ` (${frame.timestamp_text})` : ""}`,
+        dataUrl: frame.image_url,
+        source: "returned-frame",
+      }));
+  }
 
-    if (geminiPrompt.trim()) {
-      parts.push({ text: geminiPrompt.trim() });
+  function geminiAttachedImages(sourceSummary = summary) {
+    const autoFrames = returnedFrameImages(sourceSummary).slice(0, geminiAttachmentLimit);
+    const remainingSlots = Math.max(0, geminiAttachmentLimit - autoFrames.length);
+    const manualImages = geminiImages.slice(0, remainingSlots).map((image) => ({
+      ...image,
+      source: "manual-upload",
+    }));
+
+    return [...autoFrames, ...manualImages];
+  }
+
+  function buildGeminiTextParts(sourceSummary = summary, promptText = geminiPrompt.trim()) {
+    const textParts = [];
+
+    if (promptText) {
+      textParts.push(promptText);
     }
 
-    for (const image of geminiImages) {
+    if (
+      sourceSummary.description &&
+      sourceSummary.description !== "Nothing fetched yet." &&
+      sourceSummary.description !== "No description returned."
+    ) {
+      textParts.push(`Fetched video description:\n${sourceSummary.description}`);
+    }
+
+    return textParts;
+  }
+
+  function buildGeminiRequestPayload(sourceSummary = summary, promptText = geminiPrompt.trim()) {
+    const parts = buildGeminiTextParts(sourceSummary, promptText).map((text) => ({ text }));
+
+    for (const image of geminiAttachedImages(sourceSummary)) {
       const [header, data] = image.dataUrl.split(",", 2);
       const mimeType = header?.match(/^data:(.*?);base64$/)?.[1] || "image/jpeg";
       parts.push({
@@ -342,7 +385,9 @@ export default function App() {
       });
 
       const payload = await parseResponse(response);
-      setResponseText(JSON.stringify(payload, null, 2));
+      const prettyPayload = JSON.stringify(payload, null, 2);
+      setResponseText(prettyPayload);
+      setMediaResponseText(prettyPayload);
 
       if (!response.ok) {
         setAuthStatus({
@@ -489,8 +534,11 @@ export default function App() {
         return;
       }
 
-      applyPayload(payload);
+      const nextSummary = buildSummaryFromPayload(payload);
+      setVideoPlaybackError("");
+      setSummary(nextSummary);
       setFetchStatus({ message: "Media fetched successfully.", tone: "success" });
+      await promptGemini(nextSummary);
     } catch (error) {
       resetSummary();
       setFetchStatus({
@@ -504,17 +552,31 @@ export default function App() {
           2,
         ),
       );
+      setMediaResponseText(
+        JSON.stringify(
+          { detail: `Request failed: ${error.message || String(error)}` },
+          null,
+          2,
+        ),
+      );
     } finally {
       setIsFetching(false);
     }
   }
 
-  async function promptGemini() {
-    if (!geminiPrompt.trim()) {
-      setGeminiStatus({ message: "Enter a prompt first.", tone: "error" });
+  async function promptGemini(sourceSummary = summary) {
+    const requestBody = buildGeminiRequestPayload(sourceSummary);
+    const userParts = requestBody.contents?.[0]?.parts || [];
+
+    if (userParts.length === 0) {
+      setGeminiStatus({
+        message: "Nothing to send to Gemini yet. Fetch media or enter a prompt.",
+        tone: "error",
+      });
       return;
     }
 
+    setGeminiRequestBody(JSON.stringify(requestBody, null, 2));
     setIsPromptingGemini(true);
     setGeminiStatus({ message: "Prompting Gemini...", tone: "" });
 
@@ -523,13 +585,17 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: geminiPrompt.trim(),
-          image_data_urls: geminiImages.map((image) => image.dataUrl),
+          prompt: buildGeminiTextParts(sourceSummary)[0] || "Analyze the fetched media.",
+          text_parts: buildGeminiTextParts(sourceSummary),
+          image_data_urls: geminiAttachedImages(sourceSummary).map((image) => image.dataUrl),
         }),
       });
 
       const payload = await parseResponse(response);
       setResponseText(JSON.stringify(payload, null, 2));
+      if (payload.request_payload) {
+        setGeminiRequestBody(JSON.stringify(payload.request_payload, null, 2));
+      }
 
       if (!response.ok) {
         setGeminiResponse("No response returned.");
@@ -762,68 +828,6 @@ export default function App() {
         </section>
       </section>
 
-      <section className="panel stack">
-        <div className="panel-header">
-          <h2>Gemini</h2>
-          <p>Quick dev prompt box for the server-side Gemini API key.</p>
-        </div>
-
-        <div>
-          <label htmlFor="gemini-prompt">Prompt Gemini 2.5 Flash</label>
-          <textarea
-            id="gemini-prompt"
-            value={geminiPrompt}
-            onChange={(event) => setGeminiPrompt(event.target.value)}
-            placeholder="Ask Gemini something simple to verify the key works."
-          />
-        </div>
-
-        <div>
-          <label htmlFor="gemini-images">Upload Images</label>
-          <input
-            id="gemini-images"
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleGeminiImageChange}
-          />
-          <p className="hint">Up to 8 images. They stay in this browser only.</p>
-        </div>
-
-        {geminiImages.length > 0 ? (
-          <div className="gemini-image-grid">
-            {geminiImages.map((image) => (
-              <figure className="gemini-image-card" key={image.name}>
-                <img alt={image.name} src={image.dataUrl} />
-                <figcaption>{image.name}</figcaption>
-              </figure>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="actions">
-          <button type="button" disabled={isPromptingGemini} onClick={promptGemini}>
-            {isPromptingGemini ? "Prompting..." : "Prompt Gemini"}
-          </button>
-        </div>
-
-        <div className="status" data-tone={geminiStatus.tone}>
-          {geminiStatus.message}
-        </div>
-
-        <article className="meta-card">
-          <h3>Gemini Response</h3>
-          <p className="gemini-response">{geminiResponse}</p>
-        </article>
-
-        <article className="meta-card">
-          <h3>Gemini Request Payload</h3>
-          <pre className="prompt-preview">
-            {JSON.stringify(buildGeminiRequestPayload(), null, 2)}
-          </pre>
-        </article>
-      </section>
-
       <section className="panel">
           <div className="panel-header">
             <h2>Returned Data</h2>
@@ -948,6 +952,105 @@ export default function App() {
         </div>
 
         <pre>{responseText}</pre>
+      </section>
+
+      <section className="panel stack">
+        <div className="panel-header">
+          <h2>Gemini</h2>
+          <p>Quick dev prompt box for the server-side Gemini API key.</p>
+        </div>
+
+        <div>
+          <label htmlFor="gemini-prompt">Prompt Gemini 2.5 Flash</label>
+          <textarea
+            id="gemini-prompt"
+            value={geminiPrompt}
+            onChange={(event) => setGeminiPrompt(event.target.value)}
+            placeholder="Ask Gemini something simple to verify the key works."
+          />
+        </div>
+
+        <div>
+          <label htmlFor="gemini-images">Upload Images</label>
+          <input
+            id="gemini-images"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleGeminiImageChange}
+          />
+          <p className="hint">
+            Returned frames are auto-attached first, then manual uploads fill the remaining
+            slots up to 8 total.
+          </p>
+        </div>
+
+        {returnedFrameImages().length > 0 ? (
+          <div className="stack">
+            <p className="hint">
+              Auto-attached returned frames: {returnedFrameImages().length}
+            </p>
+            <div className="gemini-image-grid">
+              {returnedFrameImages().map((image) => (
+                <figure className="gemini-image-card" key={image.name}>
+                  <img alt={image.name} src={image.dataUrl} />
+                  <figcaption>{image.name}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {geminiImages.length > 0 ? (
+          <div className="gemini-image-grid">
+            {geminiImages.map((image) => (
+              <figure className="gemini-image-card" key={image.name}>
+                <img alt={image.name} src={image.dataUrl} />
+                <figcaption>{image.name}</figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : null}
+
+        {geminiImages.length > 0 ? (
+          <p className="hint">
+            Manual uploads selected: {geminiImages.length}. Attached now:{" "}
+            {
+              geminiAttachedImages().filter((image) => image.source === "manual-upload").length
+            }
+            .
+          </p>
+        ) : null}
+
+        <div className="actions">
+          <button type="button" disabled={isPromptingGemini} onClick={promptGemini}>
+            {isPromptingGemini ? "Prompting..." : "Prompt Gemini"}
+          </button>
+        </div>
+
+        <div className="status" data-tone={geminiStatus.tone}>
+          {geminiStatus.message}
+        </div>
+
+        <article className="meta-card">
+          <h3>Gemini Response</h3>
+          <p className="gemini-response">{geminiResponse}</p>
+        </article>
+
+        <article className="meta-card">
+          <h3>Gemini Request Payload</h3>
+          <pre className="prompt-preview">{geminiRequestBody}</pre>
+        </article>
+      </section>
+
+      <section className="panel stack">
+        <div className="panel-header">
+          <h2>FastAPI Return</h2>
+          <p>
+            Raw response from <code>/api/v1/media/scrape</code> after you fetch a URL.
+          </p>
+        </div>
+        <pre>{mediaResponseText}</pre>
       </section>
     </main>
   );

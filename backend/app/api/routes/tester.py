@@ -24,12 +24,14 @@ GEMINI_API_URL = (
 
 class GeminiPromptRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=12000)
+    text_parts: list[str] = Field(default_factory=list, max_length=12)
     image_data_urls: list[str] = Field(default_factory=list, max_length=8)
 
 
 class GeminiPromptResponse(BaseModel):
     text: str
     model: str = "gemini-2.5-flash"
+    request_payload: dict[str, object] | None = None
 
 
 class GeminiConfigResponse(BaseModel):
@@ -70,7 +72,13 @@ def _load_gemini_system_prompt() -> str | None:
 
 
 def _build_gemini_parts(payload: GeminiPromptRequest) -> list[dict[str, object]]:
-    parts: list[dict[str, object]] = [{"text": payload.prompt.strip()}]
+    parts: list[dict[str, object]] = []
+
+    text_parts = [part.strip() for part in payload.text_parts if part.strip()]
+    if text_parts:
+        parts.extend({"text": part} for part in text_parts)
+    elif payload.prompt.strip():
+        parts.append({"text": payload.prompt.strip()})
 
     for image_data_url in payload.image_data_urls:
         data_url = image_data_url.strip()
@@ -166,4 +174,4 @@ async def tester_gemini_prompt(payload: GeminiPromptRequest) -> GeminiPromptResp
             detail="Gemini returned no text content.",
         )
 
-    return GeminiPromptResponse(text=text)
+    return GeminiPromptResponse(text=text, request_payload=request_payload)
