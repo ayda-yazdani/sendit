@@ -14,6 +14,9 @@ from app.schemas.boards import (
     MemberResponse,
     MembersListResponse,
     MemberUpdateRequest,
+    TasteProfileResponse,
+    TasteProfileSyncRequest,
+    TasteProfileUpdateRequest,
 )
 from app.services.boards import BoardsService
 
@@ -282,3 +285,74 @@ async def delete_reel_from_board(
         board_id=board_id, reel_id=reel_id
     )
     return ReelDeleteResponse(**result)
+
+
+# ===== TASTE PROFILE ENDPOINTS =====
+
+
+@router.get(
+    "/{board_id}/taste-profile",
+    response_model=TasteProfileResponse,
+)
+async def get_taste_profile(
+    board_id: str,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+) -> TasteProfileResponse:
+    """
+    Get the taste profile for a board.
+    
+    Returns aggregated taste data including activity types, aesthetic register,
+    food preferences, location patterns, price range, and group identity label.
+    
+    Requires:
+    - Authentication: Bearer token in Authorization header
+    """
+    return await service.get_taste_profile(board_id=board_id)
+
+
+@router.post(
+    "/{board_id}/taste-profile/sync",
+    response_model=TasteProfileResponse,
+)
+async def sync_taste_profile(
+    board_id: str,
+    payload: TasteProfileSyncRequest,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+) -> TasteProfileResponse:
+    """
+    Generate or regenerate the taste profile for a board.
+    
+    Analyzes all reels on the board and generates aggregated profile data.
+    Includes activity types, aesthetic tags, food preferences, locations,
+    price range estimates, vibe tags, and AI-generated group identity label.
+    
+    Requires:
+    - Authentication: Bearer token in Authorization header
+    - Body: TasteProfileSyncRequest with optional force flag
+    """
+    return await service.sync_taste_profile(board_id=board_id, payload=payload)
+
+
+@router.patch(
+    "/{board_id}/taste-profile",
+    response_model=TasteProfileResponse,
+)
+async def update_taste_profile(
+    board_id: str,
+    payload: TasteProfileUpdateRequest,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+) -> TasteProfileResponse:
+    """
+    Manually update specific fields in a taste profile.
+    
+    Allows manual refinement of auto-generated taste profile data.
+    Any fields not provided will remain unchanged.
+    
+    Requires:
+    - Authentication: Bearer token in Authorization header
+    - Body: TasteProfileUpdateRequest with fields to update
+    """
+    return await service.update_taste_profile(board_id=board_id, payload=payload)
