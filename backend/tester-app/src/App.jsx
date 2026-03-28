@@ -64,6 +64,14 @@ function emptyConfigSummary() {
   };
 }
 
+function emptyMediaResponseText() {
+  return JSON.stringify(
+    { detail: "Nothing fetched yet. Paste a supported URL and click Fetch Data." },
+    null,
+    2,
+  );
+}
+
 function formatProviders(external) {
   if (!external || typeof external !== "object") {
     return "No provider data returned.";
@@ -148,7 +156,7 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState({ message: "", tone: "" });
   const [fetchStatus, setFetchStatus] = useState({ message: "", tone: "" });
   const [responseText, setResponseText] = useState("{}");
-  const [mediaResponseText, setMediaResponseText] = useState("{}");
+  const [mediaResponseText, setMediaResponseText] = useState(emptyMediaResponseText());
   const [summary, setSummary] = useState(emptySummary());
   const [configSummary, setConfigSummary] = useState(emptyConfigSummary());
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
@@ -497,11 +505,17 @@ export default function App() {
   async function fetchMedia() {
     if (!token.trim()) {
       setFetchStatus({ message: "A bearer token is required.", tone: "error" });
+      setMediaResponseText(
+        JSON.stringify({ detail: "A bearer token is required before fetching media." }, null, 2),
+      );
       return;
     }
 
     if (!url.trim()) {
       setFetchStatus({ message: "Paste a media URL first.", tone: "error" });
+      setMediaResponseText(
+        JSON.stringify({ detail: "Paste a media URL first." }, null, 2),
+      );
       return;
     }
 
@@ -519,7 +533,9 @@ export default function App() {
       });
 
       const payload = await parseResponse(response);
-      setResponseText(JSON.stringify(payload, null, 2));
+      const prettyPayload = JSON.stringify(payload, null, 2);
+      setResponseText(prettyPayload);
+      setMediaResponseText(prettyPayload);
 
       if (!response.ok) {
         resetSummary();

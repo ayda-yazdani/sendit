@@ -12,6 +12,7 @@ from app.services.instagram import InstagramReelScraperService
 from app.services.media import MediaScraperService
 from app.services.tiktok import TikTokVideoScraperService
 from app.services.youtube import YouTubeShortsScraperService
+from app.services.gemini_media_classifier import GeminiMediaClassifier
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -34,5 +35,6 @@ async def scrape_media(
         instagram_service=instagram_service,
         tiktok_service=tiktok_service,
         youtube_service=youtube_service,
+        gemini_classifier=GeminiMediaClassifier(),
     )
     return await scraper_service.scrape(payload)

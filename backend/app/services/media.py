@@ -6,6 +6,7 @@ from app.schemas.instagram import InstagramReelScrapeRequest, InstagramReelScrap
 from app.schemas.media import MediaScrapeRequest, MediaScrapeResponse, MediaUser
 from app.schemas.tiktok import TikTokVideoScrapeRequest, TikTokVideoScrapeResponse
 from app.schemas.youtube import YouTubeShortScrapeRequest, YouTubeShortScrapeResponse
+from app.services.gemini_media_classifier import GeminiMediaClassifier
 from app.services.instagram import InstagramReelScraperService
 from app.services.tiktok import TikTokVideoScraperService
 from app.services.youtube import YouTubeShortsScraperService
@@ -26,10 +27,12 @@ class MediaScraperService:
         instagram_service: InstagramReelScraperService,
         tiktok_service: TikTokVideoScraperService,
         youtube_service: YouTubeShortsScraperService,
+        gemini_classifier: GeminiMediaClassifier | None = None,
     ) -> None:
         self._instagram_service = instagram_service
         self._tiktok_service = tiktok_service
         self._youtube_service = youtube_service
+        self._gemini_classifier = gemini_classifier
 
     async def scrape(self, payload: MediaScrapeRequest) -> MediaScrapeResponse:
         platform = self.detect_platform(str(payload.url))
@@ -43,18 +46,21 @@ class MediaScraperService:
             result = await self._instagram_service.scrape_reel(
                 InstagramReelScrapeRequest(url=payload.url)
             )
-            return self._normalize_instagram(result)
+            normalized = self._normalize_instagram(result)
+            return await self._append_gemini(normalized)
 
         if platform == "tiktok":
             result = await self._tiktok_service.scrape_video(
                 TikTokVideoScrapeRequest(url=payload.url)
             )
-            return self._normalize_tiktok(result)
+            normalized = self._normalize_tiktok(result)
+            return await self._append_gemini(normalized)
 
         result = await self._youtube_service.scrape_short(
             YouTubeShortScrapeRequest(url=payload.url)
         )
-        return self._normalize_youtube(result)
+        normalized = self._normalize_youtube(result)
+        return await self._append_gemini(normalized)
 
     def detect_platform(self, url: str) -> str | None:
         parsed = urlparse(url)
@@ -166,3 +172,13 @@ class MediaScraperService:
             username=username,
             profile_url=profile_url,
         )
+
+    async def _append_gemini(self, payload: MediaScrapeResponse) -> MediaScrapeResponse:
+        if self._gemini_classifier is None:
+            return payload
+
+        payload.gemini = await self._gemini_classifier.classify(payload)
+        if payload.gemini is not None:
+            payload.price = payload.gemini.price
+            payload.time = payload.gemini.time
+        return payload

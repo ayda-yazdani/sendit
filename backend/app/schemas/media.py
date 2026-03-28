@@ -34,6 +34,14 @@ class MediaFrame(BaseModel):
     timestamp_text: str
 
 
+class MediaGeminiClassification(BaseModel):
+    location: str | None = None
+    event: bool | None = None
+    price: str | None = None
+    time: str | None = None
+    raw_text: str | None = None
+
+
 class MediaScrapeResponse(BaseModel):
     platform: Literal["instagram", "tiktok", "youtube"]
     requested_url: AnyHttpUrl
@@ -50,3 +58,6 @@ class MediaScrapeResponse(BaseModel):
     post_date: datetime | None = None
     duration: str | None = None
     user: MediaUser | None = None
+    price: str | None = None
+    time: str | None = None
+    gemini: MediaGeminiClassification | None = None

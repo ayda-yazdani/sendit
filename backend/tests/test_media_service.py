@@ -133,6 +133,7 @@ async def test_scrape_routes_to_instagram_service_and_normalizes_response() -> N
     assert len(result.frames) == 8
     assert result.frames[0].timestamp_text == "0:00"
     assert str(result.video_url) == "https://cdn.example.com/instagram-video.mp4"
+    assert result.gemini is None
 
 
 @pytest.mark.anyio
@@ -150,6 +151,7 @@ async def test_scrape_routes_to_tiktok_service_and_normalizes_response() -> None
     assert len(result.frames) == 8
     assert result.frames[0].timestamp_text == "0:00"
     assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
+    assert result.gemini is None
 
 
 @pytest.mark.anyio
@@ -167,6 +169,7 @@ async def test_scrape_routes_to_youtube_service_and_normalizes_response() -> Non
     assert len(result.frames) == 8
     assert result.frames[0].timestamp_text == "0:00"
     assert str(result.video_url) == "https://cdn.example.com/youtube-video.mp4"
+    assert result.gemini is None
 
 
 @pytest.mark.anyio

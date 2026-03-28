@@ -510,6 +510,9 @@ def test_unified_media_scrape_returns_normalized_tiktok_payload(
         "post_date": None,
         "duration": None,
         "user": None,
+        "price": None,
+        "time": None,
+        "gemini": None,
     }
 
 
