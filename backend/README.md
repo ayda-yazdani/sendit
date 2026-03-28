@@ -29,6 +29,8 @@ uv run uvicorn app.main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
+Open `http://127.0.0.1:8000/api/v1/` for a simple built-in tester page where you can sign in, paste a media URL, and inspect the scrape response.
+
 ## Endpoints
 
 - `GET /health`

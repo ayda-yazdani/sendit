@@ -66,9 +66,11 @@ async def test_scrape_reel_extracts_open_graph_and_json_ld_metadata() -> None:
     assert result.title == "Example reel title"
     assert result.description == "Example reel description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/thumb.jpg"
+    assert str(result.cover_image_url) == "https://cdn.example.com/thumb.jpg"
     assert str(result.video_url) == "https://cdn.example.com/video.mp4"
     assert str(result.embed_url) == "https://www.instagram.com/reel/abc123/embed"
     assert result.author is not None
+    assert result.user is not None
     assert result.author.username == "example_creator"
     assert result.open_graph["og:site_name"] == "Instagram"
     assert result.json_ld[0]["@type"] == "VideoObject"

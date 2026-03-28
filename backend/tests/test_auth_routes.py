@@ -191,6 +191,14 @@ def test_health_check_returns_ok(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_tester_page_renders_webapp(client: TestClient) -> None:
+    response = client.get("/api/v1/")
+
+    assert response.status_code == 200
+    assert "Sendit Media Tester" in response.text
+    assert "Fetch Media" in response.text
+
+
 def test_signup_returns_created_auth_payload(
     client: TestClient,
     stub_auth_service: StubSupabaseAuthService,
@@ -304,6 +312,7 @@ def test_scrape_reel_returns_metadata_for_verified_user(
     )
     assert response.json()["reel_id"] == "abc123"
     assert response.json()["title"] == "Example reel"
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/thumb.jpg"
 
 
 def test_scrape_reel_rejects_unverified_user(
@@ -345,6 +354,7 @@ def test_scrape_tiktok_video_returns_metadata_for_verified_user(
     )
     assert response.json()["video_id"] == "9876543210"
     assert response.json()["title"] == "Example TikTok"
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/tiktok-thumb.jpg"
 
 
 def test_scrape_youtube_short_returns_metadata_for_verified_user(
@@ -365,6 +375,7 @@ def test_scrape_youtube_short_returns_metadata_for_verified_user(
     )
     assert response.json()["short_id"] == "xyz987"
     assert response.json()["title"] == "Example Short"
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/youtube-thumb.jpg"
 
 
 def test_scrape_instagram_reel_rejects_invalid_url_for_verified_user(

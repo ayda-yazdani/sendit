@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 class YouTubeChannel(BaseModel):
@@ -45,3 +45,18 @@ class YouTubeShortScrapeResponse(BaseModel):
     duration: str | None = None
     open_graph: dict[str, str] = Field(default_factory=dict)
     json_ld: list[dict[str, Any]] = Field(default_factory=list)
+
+    @computed_field(return_type=AnyHttpUrl | None)
+    @property
+    def cover_image_url(self) -> AnyHttpUrl | None:
+        return self.thumbnail_url
+
+    @computed_field(return_type=datetime | None)
+    @property
+    def post_date(self) -> datetime | None:
+        return self.published_at
+
+    @computed_field(return_type=YouTubeChannel | None)
+    @property
+    def user(self) -> YouTubeChannel | None:
+        return self.channel

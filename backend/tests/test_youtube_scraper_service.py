@@ -64,8 +64,10 @@ async def test_scrape_short_extracts_youtube_metadata() -> None:
     assert result.title == "Example Short title"
     assert result.description == "Example Short description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/youtube-thumb.jpg"
+    assert str(result.cover_image_url) == "https://cdn.example.com/youtube-thumb.jpg"
     assert str(result.embed_url) == "https://www.youtube.com/embed/xyz987"
     assert result.channel is not None
+    assert result.user is not None
     assert result.channel.handle == "shortscreator"
     assert result.channel.channel_id == "UC123456789"
     assert result.open_graph["og:site_name"] == "YouTube"

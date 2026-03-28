@@ -38,6 +38,45 @@ TIKTOK_HTML = """
 </html>
 """
 
+TIKTOK_UNIVERSAL_DATA_HTML = """
+<html>
+  <head>
+    <title>TikTok - Make Your Day</title>
+    <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">
+      {
+        "__DEFAULT_SCOPE__": {
+          "webapp.video-detail": {
+            "statusCode": 0,
+            "statusMsg": "",
+            "shareMeta": {
+              "title": "Creator on TikTok",
+              "desc": "Creator's short video with original sound"
+            },
+            "itemInfo": {
+              "itemStruct": {
+                "id": "9876543210",
+                "desc": "",
+                "createTime": "1768157731",
+                "video": {
+                  "duration": 10,
+                  "cover": "https://cdn.example.com/tiktok-thumb.jpg",
+                  "playAddr": "https://cdn.example.com/tiktok-video.mp4"
+                },
+                "author": {
+                  "uniqueId": "creator",
+                  "nickname": "Creator Name"
+                }
+              }
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
+"""
+
 
 @pytest.mark.anyio
 async def test_scrape_video_extracts_tiktok_metadata() -> None:
@@ -67,11 +106,43 @@ async def test_scrape_video_extracts_tiktok_metadata() -> None:
     assert result.title == "Example TikTok title"
     assert result.description == "Example TikTok description"
     assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert str(result.cover_image_url) == "https://cdn.example.com/tiktok-thumb.jpg"
     assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
     assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
     assert result.author is not None
+    assert result.user is not None
     assert result.author.username == "creator"
     assert result.open_graph["og:site_name"] == "TikTok"
+
+
+@pytest.mark.anyio
+async def test_scrape_video_falls_back_to_universal_data_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=TIKTOK_UNIVERSAL_DATA_HTML,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        service = TikTokVideoScraperService(http_client=client)
+        result = await service.scrape_video(
+            TikTokVideoScrapeRequest(
+                url="https://www.tiktok.com/@creator/video/9876543210"
+            )
+        )
+
+    assert result.video_id == "9876543210"
+    assert result.title == "Creator on TikTok"
+    assert result.description == "Creator's short video with original sound"
+    assert str(result.thumbnail_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert str(result.cover_image_url) == "https://cdn.example.com/tiktok-thumb.jpg"
+    assert str(result.video_url) == "https://cdn.example.com/tiktok-video.mp4"
+    assert str(result.embed_url) == "https://www.tiktok.com/embed/9876543210"
+    assert result.author is not None
+    assert result.user is not None
+    assert result.author.username == "creator"
 
 
 @pytest.mark.anyio
