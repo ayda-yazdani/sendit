@@ -7,6 +7,7 @@ from app.services.instagram import InstagramReelScraperService
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.tiktok import TikTokVideoScraperService
 from app.services.youtube import YouTubeShortsScraperService
+from app.services.boards import BoardsService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -37,6 +38,16 @@ def get_youtube_shorts_scraper_service(
     request: Request,
 ) -> YouTubeShortsScraperService:
     return YouTubeShortsScraperService(http_client=request.app.state.http_client)
+
+
+def get_boards_service(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> BoardsService:
+    return BoardsService(
+        http_client=request.app.state.http_client,
+        settings=settings,
+    )
 
 
 def get_access_token(
