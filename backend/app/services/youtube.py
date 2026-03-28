@@ -209,8 +209,8 @@ class YouTubeShortsScraperService:
     def _extract_channel(
         self,
         primary_video: dict[str, object] | None,
-        player_response: dict[str, object] | None,
-        oembed: dict[str, object] | None,
+        player_response: dict[str, object] | None = None,
+        oembed: dict[str, object] | None = None,
     ) -> YouTubeChannel | None:
         if not isinstance(primary_video, dict):
             return self._extract_channel_from_player_response(
