@@ -13,6 +13,7 @@ import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/Suggest
 import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 import { TasteProfileSection } from "@/components/board/TasteProfile";
 import { IdentityCard } from "@/components/board/IdentityCard";
+import { CometCard } from "@/components/board/CometCard";
 import { useTasteStore } from "@/lib/stores/taste-store";
 import { theme } from "@/constants/Theme";
 
@@ -184,14 +185,15 @@ export default function BoardDetailScreen() {
           )}
         </View>
 
-        {/* Identity Card */}
+        {/* Comet Identity Card */}
         {tasteProfile?.identity_label && tasteProfile?.profile_data && activeBoard && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Group Identity</Text>
-            <IdentityCard
+            <CometCard
               boardName={activeBoard.name}
               identityLabel={tasteProfile.identity_label}
               profileData={tasteProfile.profile_data}
+              memberCount={activeBoardMembers.length}
+              reelCount={reels.length}
             />
           </View>
         )}
