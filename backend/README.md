@@ -38,6 +38,14 @@ The API will be available at `http://127.0.0.1:8000`.
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 
+## Test
+
+```bash
+cd backend
+uv sync --dev
+uv run pytest
+```
+
 ## Notes
 
 - `me` and `logout` expect `Authorization: Bearer <access_token>`.
