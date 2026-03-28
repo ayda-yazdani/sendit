@@ -9,6 +9,7 @@ from app.services.tiktok import TikTokVideoScraperService
 from app.services.video_frames import VideoFrameService
 from app.services.youtube import YouTubeShortsScraperService
 from app.services.boards import BoardsService
+from app.services.user_profiles import UserProfilesService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -55,6 +56,16 @@ def get_boards_service(
     settings: Settings = Depends(get_settings),
 ) -> BoardsService:
     return BoardsService(
+        http_client=request.app.state.http_client,
+        settings=settings,
+    )
+
+
+def get_user_profiles_service(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> UserProfilesService:
+    return UserProfilesService(
         http_client=request.app.state.http_client,
         settings=settings,
     )
