@@ -300,6 +300,50 @@ button.secondary {
   overflow-wrap: anywhere;
 }
 
+.gemini-response {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.prompt-preview {
+  margin: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f7f1e7;
+  color: var(--ink);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.gemini-image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gemini-image-card {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.gemini-image-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #f1e8da;
+}
+
+.gemini-image-card figcaption {
+  font-size: 0.84rem;
+  color: var(--muted);
+  text-align: center;
+  word-break: break-word;
+}
+
 .media-stack {
   display: grid;
   gap: 10px;
@@ -355,7 +399,8 @@ pre {
   .grid,
   .row,
   .meta-grid,
-  .frames-grid {
+  .frames-grid,
+  .gemini-image-grid {
     grid-template-columns: 1fr;
   }
 }

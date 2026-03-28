@@ -20,7 +20,6 @@ TIKTOK_HOSTS = {
 }
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
 
-
 class MediaScraperService:
     def __init__(
         self,
