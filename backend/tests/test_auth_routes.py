@@ -195,8 +195,18 @@ def test_tester_page_renders_webapp(client: TestClient) -> None:
     response = client.get("/api/v1/")
 
     assert response.status_code == 200
-    assert "Sendit Media Tester" in response.text
-    assert "Fetch Media" in response.text
+    assert "Sendit DEV Tester" in response.text
+    assert "DEV" in response.text
+    assert "/static/tester/app.js" in response.text
+    assert "The backend decides the platform." in response.text
+
+
+def test_tester_javascript_is_served(client: TestClient) -> None:
+    response = client.get("/static/tester/app.js")
+
+    assert response.status_code == 200
+    assert "fetchMedia" in response.text
+    assert "/api/v1/media/scrape" in response.text
 
 
 def test_signup_returns_created_auth_payload(
@@ -376,6 +386,78 @@ def test_scrape_youtube_short_returns_metadata_for_verified_user(
     assert response.json()["short_id"] == "xyz987"
     assert response.json()["title"] == "Example Short"
     assert response.json()["cover_image_url"] == "https://cdn.example.com/youtube-thumb.jpg"
+
+
+def test_unified_media_scrape_returns_normalized_tiktok_payload(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "https://www.tiktok.com/@creator/video/9876543210"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "platform": "tiktok",
+        "requested_url": "https://www.tiktok.com/@creator/video/9876543210",
+        "resolved_url": "https://www.tiktok.com/@creator/video/9876543210",
+        "canonical_url": "https://www.tiktok.com/@creator/video/9876543210",
+        "media_id": "9876543210",
+        "title": "Example TikTok",
+        "description": "Example TikTok description",
+        "cover_image_url": "https://cdn.example.com/tiktok-thumb.jpg",
+        "video_url": None,
+        "embed_url": None,
+        "post_date": None,
+        "duration": None,
+        "user": None,
+    }
+
+
+def test_unified_media_scrape_returns_normalized_instagram_payload(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "https://www.instagram.com/reel/abc123/"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["platform"] == "instagram"
+    assert response.json()["media_id"] == "abc123"
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/thumb.jpg"
+
+
+def test_unified_media_scrape_returns_normalized_youtube_payload(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "https://www.youtube.com/shorts/xyz987"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["platform"] == "youtube"
+    assert response.json()["media_id"] == "xyz987"
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/youtube-thumb.jpg"
+
+
+def test_unified_media_scrape_rejects_unsupported_url(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/media/scrape",
+        json={"url": "https://example.com/video/123"},
+        headers={"Authorization": "Bearer access-token"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "URL must point to an Instagram Reel, TikTok video, or YouTube Short."
+    }
 
 
 def test_scrape_instagram_reel_rejects_invalid_url_for_verified_user(

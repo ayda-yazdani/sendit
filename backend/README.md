@@ -29,7 +29,7 @@ uv run uvicorn app.main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-Open `http://127.0.0.1:8000/api/v1/` for a simple built-in tester page where you can sign in, paste a media URL, and inspect the scrape response.
+Open `http://127.0.0.1:8000/api/v1/` for the built-in DEV tester webapp. It serves real `HTML` and `JavaScript` files from the backend so you can sign in, paste a media URL, and inspect the returned payload.
 
 ## Endpoints
 
@@ -39,6 +39,7 @@ Open `http://127.0.0.1:8000/api/v1/` for a simple built-in tester page where you
 - `POST /api/v1/auth/refresh`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/media/scrape`
 - `POST /api/v1/instagram/reels/scrape`
 - `POST /api/v1/tiktok/videos/scrape`
 - `POST /api/v1/youtube/shorts/scrape`
@@ -55,6 +56,7 @@ uv run pytest
 
 - `me` and `logout` expect `Authorization: Bearer <access_token>`.
 - The scrape endpoints also expect `Authorization: Bearer <access_token>` and only allow verified Supabase users.
+- `POST /api/v1/media/scrape` is the simplest entrypoint: pass any supported URL and the backend auto-detects Instagram Reels, TikTok videos, or YouTube Shorts.
 - `POST /api/v1/instagram/reels/scrape` accepts a public `https://www.instagram.com/reel/...` URL and returns structured Open Graph and JSON-LD metadata.
 - `POST /api/v1/tiktok/videos/scrape` accepts a public TikTok video URL, including standard `@user/video/...` links.
 - `POST /api/v1/youtube/shorts/scrape` accepts a public `https://www.youtube.com/shorts/...` URL.
