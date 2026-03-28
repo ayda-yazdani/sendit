@@ -1,4 +1,5 @@
 import { View, Text, TextInput, StyleSheet } from "react-native";
+import { theme } from "@/constants/Theme";
 
 interface InputProps {
   label?: string;
@@ -23,8 +24,8 @@ export function Input({ label, value, onChangeText, placeholder, maxLength, erro
 
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: "#ddd", borderRadius: 10, padding: 14, fontSize: 16, color: "#333", backgroundColor: "#f9f9f9" },
+  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 6, fontFamily: theme.fonts.semibold },
+  input: { borderWidth: 1, borderColor: "#ddd", borderRadius: 10, padding: 14, fontSize: 16, color: "#333", backgroundColor: "#f9f9f9", fontFamily: theme.fonts.regular },
   inputError: { borderColor: "#e74c3c" },
   error: { fontSize: 12, color: "#e74c3c", marginTop: 4 },
   counter: { fontSize: 11, color: "#999", textAlign: "right", marginTop: 4 },

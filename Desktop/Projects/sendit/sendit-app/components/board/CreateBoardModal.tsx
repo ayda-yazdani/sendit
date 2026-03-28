@@ -3,6 +3,7 @@ import { Modal, View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, P
 import { Button } from "../shared/Button";
 import { Input } from "../shared/Input";
 import { useBoardStore, Board } from "@/lib/stores/board-store";
+import { theme } from "@/constants/Theme";
 
 interface CreateBoardModalProps { visible: boolean; onClose: () => void; onCreated: (board: Board) => void; }
 
@@ -47,8 +48,8 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   handle: { width: 36, height: 4, backgroundColor: "#ddd", borderRadius: 2, alignSelf: "center", marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#333", marginBottom: 4 },
-  subtitle: { fontSize: 14, color: "#999", marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: "bold", color: "#333", marginBottom: 4, fontFamily: theme.fonts.bold },
+  subtitle: { fontSize: 14, color: "#999", marginBottom: 24, fontFamily: theme.fonts.regular },
   cancelButton: { alignItems: "center", marginTop: 12, padding: 8 },
-  cancelText: { fontSize: 15, color: "#999" },
+  cancelText: { fontSize: 15, color: "#999", fontFamily: theme.fonts.regular },
 });

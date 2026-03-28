@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { Button } from "../shared/Button";
 import { Board } from "@/lib/stores/board-store";
 import { useState } from "react";
+import { theme } from "@/constants/Theme";
 
 interface JoinCodeDisplayProps { board: Board; onDone: () => void; }
 
@@ -43,7 +44,7 @@ const styles = StyleSheet.create({
   boardName: { fontSize: 16, color: "#666", marginBottom: 24 },
   codeBox: { backgroundColor: "#f5f0eb", borderRadius: 16, padding: 24, alignItems: "center", marginBottom: 16, width: "100%" },
   codeLabel: { fontSize: 12, color: "#999", textTransform: "uppercase", marginBottom: 8 },
-  code: { fontSize: 36, fontWeight: "bold", color: "#d4562a", letterSpacing: 6 },
+  code: { fontSize: 36, fontWeight: "bold", color: theme.colors.primary, letterSpacing: 6 },
   hint: { fontSize: 13, color: "#999", textAlign: "center", marginBottom: 24, maxWidth: 260 },
   button: { width: "100%", marginBottom: 8 },
 });

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { View, Text, StyleSheet, Share } from "react-native";
 import { TasteProfileData } from "@/lib/ai/taste-engine";
 import { Button } from "@/components/shared/Button";
+import { theme } from "@/constants/Theme";
 
 interface IdentityCardProps {
   boardName: string;
@@ -88,13 +89,13 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     overflow: "hidden",
   },
-  topBar: { height: 4, backgroundColor: "#d4562a", marginHorizontal: -24, marginBottom: 20 },
+  topBar: { height: 4, backgroundColor: theme.colors.primary, marginHorizontal: -24, marginBottom: 20 },
   boardName: { fontSize: 13, color: "#6e6963", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 },
   identity: { fontSize: 24, fontWeight: "bold", color: "#eeebe3", lineHeight: 30, marginBottom: 16 },
   divider: { height: 1, backgroundColor: "rgba(238,235,227,0.1)", marginBottom: 16 },
   traits: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
   traitPill: { backgroundColor: "rgba(212,86,42,0.15)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  traitText: { fontSize: 13, color: "#d4562a", fontWeight: "500" },
+  traitText: { fontSize: 13, color: theme.colors.primary, fontWeight: "500" },
   aesthetic: { fontSize: 15, color: "rgba(238,235,227,0.6)", fontStyle: "italic", marginBottom: 16 },
   footer: { flexDirection: "row", gap: 16, marginBottom: 16 },
   footerText: { fontSize: 13, color: "#6e6963" },

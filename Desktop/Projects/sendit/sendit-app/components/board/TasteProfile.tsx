@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { TasteProfileData } from "@/lib/ai/taste-engine";
 import { Button } from "@/components/shared/Button";
+import { theme } from "@/constants/Theme";
 
 interface TasteProfileDisplayProps {
   profileData: TasteProfileData;
@@ -33,7 +34,7 @@ export function TasteProfileDisplay({ profileData, identityLabel }: TasteProfile
           <Text style={styles.sectionLabel}>Into</Text>
           <View style={styles.pillRow}>
             {p.activity_types.map((a, i) => (
-              <TagPill key={i} text={a} color="#d4562a" bg="#fdf5f2" />
+              <TagPill key={i} text={a} color={theme.colors.primary} bg={`${theme.colors.primary}20`} />
             ))}
           </View>
         </View>
@@ -45,7 +46,7 @@ export function TasteProfileDisplay({ profileData, identityLabel }: TasteProfile
           <Text style={styles.sectionLabel}>Food</Text>
           <View style={styles.pillRow}>
             {p.food_preferences.map((f, i) => (
-              <TagPill key={i} text={`🍽 ${f}`} color="#c49a2e" bg="#fdf8ee" />
+              <TagPill key={i} text={`🍽 ${f}`} color={theme.colors.warm} bg={`${theme.colors.warm}20`} />
             ))}
           </View>
         </View>
@@ -65,7 +66,7 @@ export function TasteProfileDisplay({ profileData, identityLabel }: TasteProfile
           <Text style={styles.sectionLabel}>Where</Text>
           <View style={styles.pillRow}>
             {p.location_patterns.map((l, i) => (
-              <TagPill key={i} text={`📍 ${l}`} color="#1a9e76" bg="#f0faf6" />
+              <TagPill key={i} text={`📍 ${l}`} color={theme.colors.secondary} bg={`${theme.colors.secondary}20`} />
             ))}
           </View>
         </View>
@@ -123,7 +124,7 @@ export function TasteProfileSection({
   if (isLoading) {
     return (
       <View style={styles.emptyContainer}>
-        <ActivityIndicator size="small" color="#d4562a" />
+        <ActivityIndicator size="small" color={theme.colors.primary} />
         <Text style={styles.emptyText}>Building taste profile...</Text>
       </View>
     );
@@ -158,17 +159,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignItems: "center",
   },
-  identityLabel: { fontSize: 18, fontWeight: "bold", color: "#eeebe3", letterSpacing: 0.5 },
+  identityLabel: { fontSize: 18, fontWeight: "bold", color: "#eeebe3", letterSpacing: 0.5, fontFamily: theme.fonts.extrabold },
   section: { marginBottom: 14 },
-  sectionLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
+  sectionLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, fontFamily: theme.fonts.semibold },
   pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pill: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  pillText: { fontSize: 13, fontWeight: "500" },
-  aestheticText: { fontSize: 15, color: "#555", fontStyle: "italic" },
+  pillText: { fontSize: 13, fontWeight: "500", fontFamily: theme.fonts.semibold },
+  aestheticText: { fontSize: 15, color: "#555", fontStyle: "italic", fontFamily: theme.fonts.regular },
   metaRow: { flexDirection: "row", gap: 20, marginBottom: 14 },
   metaItem: { flex: 1 },
-  metaLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
-  metaValue: { fontSize: 14, color: "#555" },
+  metaLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, fontFamily: theme.fonts.semibold },
+  metaValue: { fontSize: 14, color: "#555", fontFamily: theme.fonts.regular },
   platformRow: { flexDirection: "row", gap: 8 },
   platformChip: {
     flexDirection: "row",
@@ -179,8 +180,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  platformName: { fontSize: 12, color: "#666", textTransform: "capitalize" },
-  platformCount: { fontSize: 12, fontWeight: "700", color: "#333" },
+  platformName: { fontSize: 12, color: "#666", textTransform: "capitalize", fontFamily: theme.fonts.regular },
+  platformCount: { fontSize: 12, fontWeight: "700", color: "#333", fontFamily: theme.fonts.bold },
   emptyContainer: {
     alignItems: "center",
     paddingVertical: 28,
@@ -191,6 +192,6 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
   emptyIcon: { fontSize: 36, marginBottom: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 6 },
-  emptyText: { fontSize: 13, color: "#999", textAlign: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 6, fontFamily: theme.fonts.semibold },
+  emptyText: { fontSize: 13, color: "#999", textAlign: "center", fontFamily: theme.fonts.regular },
 });

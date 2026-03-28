@@ -1,4 +1,5 @@
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle } from "react-native";
+import { theme } from "@/constants/Theme";
 
 interface ButtonProps {
   title: string;
@@ -17,7 +18,7 @@ export function Button({ title, onPress, disabled = false, loading = false, vari
       onPress={onPress} disabled={isDisabled} activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#fff" : "#d4562a"} size="small" />
+        <ActivityIndicator color={variant === "primary" ? "#fff" : theme.colors.primary} size="small" />
       ) : (
         <Text style={[styles.text, variant === "primary" && styles.primaryText, variant === "secondary" && styles.secondaryText, variant === "ghost" && styles.ghostText]}>{title}</Text>
       )}
@@ -27,12 +28,12 @@ export function Button({ title, onPress, disabled = false, loading = false, vari
 
 const styles = StyleSheet.create({
   base: { borderRadius: 12, padding: 16, alignItems: "center", justifyContent: "center" },
-  primary: { backgroundColor: "#d4562a" },
-  secondary: { borderWidth: 1.5, borderColor: "#d4562a", backgroundColor: "transparent" },
+  primary: { backgroundColor: theme.colors.primary },
+  secondary: { borderWidth: 1.5, borderColor: theme.colors.primary, backgroundColor: "transparent" },
   ghost: { backgroundColor: "transparent" },
   disabled: { opacity: 0.5 },
-  text: { fontSize: 16, fontWeight: "600" },
+  text: { fontSize: 16, fontWeight: "600", fontFamily: theme.fonts.semibold },
   primaryText: { color: "#fff" },
-  secondaryText: { color: "#d4562a" },
-  ghostText: { color: "#d4562a" },
+  secondaryText: { color: theme.colors.primary },
+  ghostText: { color: theme.colors.primary },
 });

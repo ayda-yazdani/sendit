@@ -83,10 +83,10 @@ export function VoteButtons({ suggestionId, memberId, currentVote, onVoted }: Vo
 
 const styles = StyleSheet.create({
   container: { marginTop: 8 },
-  label: { fontSize: 14, fontWeight: "600", color: theme.colors.text, marginBottom: 10 },
+  label: { fontSize: 14, fontWeight: "600", color: theme.colors.text, marginBottom: 10, fontFamily: theme.fonts.semibold },
   buttons: { flexDirection: "row", gap: 8 },
   button: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 2 },
-  buttonText: { fontSize: 15, fontWeight: "600" },
+  buttonText: { fontSize: 15, fontWeight: "600", fontFamily: theme.fonts.semibold },
   activeText: { color: "#fff" },
 
   inButton: { borderColor: theme.colors.secondary, backgroundColor: "transparent" },

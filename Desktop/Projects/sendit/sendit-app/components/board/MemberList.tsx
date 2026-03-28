@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import { Member } from "@/lib/stores/board-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { theme } from "@/constants/Theme";
 
-const AVATAR_COLORS = ["#d4562a", "#1a9e76", "#c49a2e", "#6e6963", "#3b82f6", "#8b5cf6", "#ec4899"];
+const AVATAR_COLORS = ["#982649", "#3C6E71", "#94C595", "#D8A48F", "#284B63"];
 
 function getAvatarColor(name: string): string {
   let hash = 0;

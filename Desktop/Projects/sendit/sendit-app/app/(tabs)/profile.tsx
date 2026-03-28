@@ -18,8 +18,8 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: theme.colors.bg },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 24, color: theme.colors.text },
-  label: { fontSize: 12, color: theme.colors.textMuted, textTransform: "uppercase", marginTop: 16, marginBottom: 4 },
-  value: { fontSize: 14, color: theme.colors.textSecondary },
-  hint: { fontSize: 13, color: theme.colors.textMuted, marginTop: 32, textAlign: "center" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 24, color: theme.colors.text, fontFamily: theme.fonts.bold },
+  label: { fontSize: 12, color: theme.colors.textMuted, textTransform: "uppercase", marginTop: 16, marginBottom: 4, fontFamily: theme.fonts.semibold },
+  value: { fontSize: 14, color: theme.colors.textSecondary, fontFamily: theme.fonts.regular },
+  hint: { fontSize: 13, color: theme.colors.textMuted, marginTop: 32, textAlign: "center", fontFamily: theme.fonts.regular },
 });
