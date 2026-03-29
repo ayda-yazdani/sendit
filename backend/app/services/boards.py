@@ -111,6 +111,25 @@ class BoardsService:
             )
 
         reels_data = response.json()
+        for reel in reels_data:
+            extraction_data = reel.get("extraction_data")
+            if not isinstance(extraction_data, dict):
+                continue
+
+            frame_url = extraction_data.get("frame_image_url")
+            preview_urls = extraction_data.get("preview_image_urls")
+            preferred_thumbnail = None
+
+            if isinstance(frame_url, str) and frame_url:
+                preferred_thumbnail = frame_url
+            elif isinstance(preview_urls, list):
+                for url in preview_urls:
+                    if isinstance(url, str) and url:
+                        preferred_thumbnail = url
+                        break
+
+            if preferred_thumbnail:
+                extraction_data["thumbnail_url"] = preferred_thumbnail
         reels = [ReelResponse(**reel) for reel in reels_data]
 
         # Get total count
