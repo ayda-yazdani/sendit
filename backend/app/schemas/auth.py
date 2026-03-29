@@ -83,14 +83,7 @@ class SignUpRequest(StrictAPIModel):
 
 class SignInRequest(StrictAPIModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-
-    @field_validator("password")
-    @classmethod
-    def validate_signin_password_not_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Password must not be blank.")
-        return value
+    password: str = Field(min_length=1, max_length=128)
 
 
 class RefreshSessionRequest(StrictAPIModel):

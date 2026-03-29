@@ -30,7 +30,7 @@ function clusterReels(reels: Reel[]): BlobCluster[] {
   const groups: Record<string, Reel[]> = {};
 
   for (const reel of reels) {
-    const cat = reel.classification || "vibe_inspiration";
+    const cat = reel.classification || "uncategorised";
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(reel);
   }
@@ -98,7 +98,7 @@ export function BlobGraphView({ reels, onBlobPress }: BlobGraphViewProps) {
           index={index}
           onPress={() => {
             const clusterReelsFull = reels.filter(
-              (r) => (r.classification || "vibe_inspiration") === cluster.category
+              (r) => (r.classification || "uncategorised") === cluster.category
             );
             onBlobPress(cluster.category, clusterReelsFull);
           }}

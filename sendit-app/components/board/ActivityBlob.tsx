@@ -18,6 +18,7 @@ const BLOB_GRADIENTS: Record<string, [string, string, string]> = {
   recipe_food:      ["#D8A48F", "#94C595", "#D8A48F"],
   vibe_inspiration: ["#284B63", "#3C6E71", "#284B63"],
   humour_identity:  ["#982649", "#284B63", "#982649"],
+  uncategorised:    ["#353535", "#555555", "#353535"],
 };
 
 const BLOB_LABELS: Record<string, string> = {
@@ -26,6 +27,7 @@ const BLOB_LABELS: Record<string, string> = {
   recipe_food: "Food",
   vibe_inspiration: "Vibes",
   humour_identity: "Humour",
+  uncategorised: "Other",
 };
 
 interface ReelPreview {

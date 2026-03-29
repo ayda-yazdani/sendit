@@ -6,6 +6,8 @@ import random
 import json
 from datetime import datetime
 
+import re
+
 from app.config import Settings
 from app.schemas.boards import (
     ReelCreateRequest,
@@ -899,3 +901,109 @@ class BoardsService:
             return " ".join(parts) + " Vibes"
 
         return None
+
+    # ===== Reclassify Methods =====
+
+    @staticmethod
+    def _classify_from_gemini(gemini: dict | None) -> str | None:
+        if not gemini:
+            return None
+
+        ratings = gemini.get("ratings") or {}
+
+        if gemini.get("event") is True:
+            return "real_event"
+
+        event_score = max(ratings.get("Party", 0), ratings.get("Music", 0), ratings.get("Culture", 0))
+        if event_score >= 0.75:
+            return "real_event"
+
+        if ratings.get("Restaurant", 0) >= 0.75:
+            return "real_venue"
+        venue_score = max(ratings.get("Restaurant", 0), ratings.get("Gym", 0), ratings.get("Zoo", 0), ratings.get("Beach", 0))
+        location_score = max(ratings.get("City", 0), ratings.get("Island", 0))
+        if venue_score >= 0.5 and location_score >= 0.5:
+            return "real_venue"
+
+        if ratings.get("Food", 0) >= 0.75 and ratings.get("Restaurant", 0) < 0.5:
+            return "recipe_food"
+
+        vibe_score = max(ratings.get("Travel", 0), ratings.get("Fashion", 0), ratings.get("Ocean", 0), ratings.get("Mountain", 0))
+        if vibe_score >= 0.75:
+            return "vibe_inspiration"
+
+        return None
+
+    @staticmethod
+    def _classify_from_keywords(extraction_data: dict | None) -> str | None:
+        if not extraction_data:
+            return None
+        text = f"{extraction_data.get('title', '')} {extraction_data.get('description', '')}".lower()
+        if len(text.strip()) < 10:
+            return None
+
+        if re.search(r"ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open|live show|festival|gig|concert|sold out|rsvp|free entry|guest list|lineup|performing", text, re.I):
+            return "real_event"
+        if re.search(r"restaurant|bar |cafe|café|club|rooftop|pub|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner", text, re.I):
+            return "real_venue"
+        if re.search(r"best spots|hidden gem|must visit|where to eat|where to go|food spot|date night spot|new opening|place to be", text, re.I):
+            return "real_venue"
+        if re.search(r"recipe|cook|ingredient|how to make|easy meal|homemade|meal prep|air fryer|what i eat|grocery haul|food hack|baking|sous vide", text, re.I):
+            return "recipe_food"
+        if re.search(r"meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political|satire|relatable|crying|i can't|no way|send this to|tag someone|emotional damage|rent free", text, re.I):
+            return "humour_identity"
+        if re.search(r"travel vlog|sunset|aesthetic|dreamy|wanderlust|bucket list|golden hour|cinematic|drone shot|nature escape", text, re.I):
+            return "vibe_inspiration"
+
+        return None
+
+    async def reclassify_board_reels(self, board_id: str, scraper_service: object) -> dict:
+        """Re-scrape and reclassify all unclassified reels in a board."""
+        await self._verify_board_exists(board_id)
+
+        # Fetch reels with null classification
+        response = await self._http_client.get(
+            f"{self._supabase_url}/rest/v1/reels",
+            params={
+                "board_id": f"eq.{board_id}",
+                "classification": "is.null",
+                "select": "id,url,extraction_data",
+            },
+            headers=self._headers,
+        )
+
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail="Could not fetch reels.")
+
+        reels = response.json()
+        if not reels:
+            return {"reclassified": 0, "total": 0}
+
+        from app.schemas.media import MediaScrapeRequest
+
+        reclassified = 0
+        for reel in reels:
+            classification = None
+
+            # Try re-scraping to get Gemini data
+            try:
+                scrape_result = await scraper_service.scrape(MediaScrapeRequest(url=reel["url"]))
+                if scrape_result.gemini:
+                    classification = self._classify_from_gemini(scrape_result.gemini.model_dump())
+            except Exception:
+                pass
+
+            # Fall back to keyword matching on existing extraction_data
+            if not classification:
+                classification = self._classify_from_keywords(reel.get("extraction_data"))
+
+            if classification:
+                await self._http_client.patch(
+                    f"{self._supabase_url}/rest/v1/reels",
+                    params={"id": f"eq.{reel['id']}"},
+                    json={"classification": classification},
+                    headers={**self._headers, "Prefer": "return=minimal"},
+                )
+                reclassified += 1
+
+        return {"reclassified": reclassified, "total": len(reels)}

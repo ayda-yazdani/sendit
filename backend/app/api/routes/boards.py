@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from app.dependencies import get_verified_user, get_boards_service
+from app.dependencies import (
+    get_verified_user,
+    get_boards_service,
+    get_instagram_reel_scraper_service,
+    get_tiktok_video_scraper_service,
+    get_youtube_shorts_scraper_service,
+)
 from app.schemas.auth import SupabaseUser
 from app.schemas.boards import (
     ReelCreateRequest,
@@ -19,6 +25,11 @@ from app.schemas.boards import (
     TasteProfileUpdateRequest,
 )
 from app.services.boards import BoardsService
+from app.services.instagram import InstagramReelScraperService
+from app.services.media import MediaScraperService
+from app.services.gemini_media_classifier import GeminiMediaClassifier
+from app.services.tiktok import TikTokVideoScraperService
+from app.services.youtube import YouTubeShortsScraperService
 
 
 router = APIRouter(prefix="/boards", tags=["boards"])
@@ -356,3 +367,25 @@ async def update_taste_profile(
     - Body: TasteProfileUpdateRequest with fields to update
     """
     return await service.update_taste_profile(board_id=board_id, payload=payload)
+
+
+# ===== RECLASSIFY ENDPOINT =====
+
+
+@router.post("/{board_id}/reclassify")
+async def reclassify_reels(
+    board_id: str,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+    instagram_service: InstagramReelScraperService = Depends(get_instagram_reel_scraper_service),
+    tiktok_service: TikTokVideoScraperService = Depends(get_tiktok_video_scraper_service),
+    youtube_service: YouTubeShortsScraperService = Depends(get_youtube_shorts_scraper_service),
+) -> dict:
+    """Re-scrape and reclassify all unclassified reels in a board."""
+    scraper = MediaScraperService(
+        instagram_service=instagram_service,
+        tiktok_service=tiktok_service,
+        youtube_service=youtube_service,
+        gemini_classifier=GeminiMediaClassifier(),
+    )
+    return await service.reclassify_board_reels(board_id=board_id, scraper_service=scraper)

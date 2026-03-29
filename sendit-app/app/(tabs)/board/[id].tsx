@@ -137,7 +137,9 @@ export default function BoardDetailScreen() {
       </View>
 
       {/* Blob Graph View */}
-      <BlobGraphView reels={reels} onBlobPress={handleBlobPress} />
+      <View style={styles.blobContainer}>
+        <BlobGraphView reels={reels} onBlobPress={handleBlobPress} />
+      </View>
 
       {/* URL Input — glowing, pinned to bottom */}
       {id && currentMemberId && (
@@ -204,11 +206,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  // Blob graph fills remaining space
+  blobContainer: {
+    flex: 1,
+  },
+
   // URL Input container
   urlInputContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
 });

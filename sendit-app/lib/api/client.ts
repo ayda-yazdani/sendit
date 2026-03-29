@@ -46,10 +46,14 @@ export async function apiRequest<T>(
     let message = `Request failed with status ${response.status}`;
     try {
       const data = await response.json();
-      message =
-        (typeof data?.detail === "string" && data.detail) ||
-        (typeof data?.message === "string" && data.message) ||
-        message;
+      if (Array.isArray(data?.errors) && data.errors.length > 0) {
+        message = data.errors.map((e: any) => e.msg || e.message).join("; ");
+      } else {
+        message =
+          (typeof data?.detail === "string" && data.detail) ||
+          (typeof data?.message === "string" && data.message) ||
+          message;
+      }
     } catch {
       // Ignore parse failures and keep the fallback message.
     }

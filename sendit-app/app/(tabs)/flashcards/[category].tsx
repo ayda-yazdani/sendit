@@ -42,6 +42,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   recipe_food: "Food",
   vibe_inspiration: "Vibes",
   humour_identity: "Humour",
+  uncategorised: "Other",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -50,6 +51,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   recipe_food: "#D8A48F",
   vibe_inspiration: "#284B63",
   humour_identity: "#982649",
+  uncategorised: "#555555",
 };
 
 interface Reel {
@@ -86,7 +88,7 @@ export default function FlashcardScreen() {
         if (currentMember) {
           const data = await listBoardReels(session, boardId, currentMember.id);
         const filtered = data.filter(
-          (r: Reel) => (r.classification || "vibe_inspiration") === category
+          (r: Reel) => (r.classification || "uncategorised") === category
         );
         setReels(filtered);
       }

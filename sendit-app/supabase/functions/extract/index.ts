@@ -118,19 +118,66 @@ function mapToExtractionData(scraperData: any, url: string, platform: Platform) 
   };
 }
 
-// ---- SIMPLE CLASSIFICATION FROM METADATA (no Claude needed) ----
+// ---- CLASSIFICATION: Gemini ratings first, keyword fallback ----
 
-function guessClassification(data: any): string | null {
+function classifyFromGemini(gemini: any): string | null {
+  if (!gemini) return null;
+
+  const ratings = gemini.ratings || {};
+
+  // Direct event flag from Gemini
+  if (gemini.event === true) return "real_event";
+
+  // Event-adjacent: high party/music/culture scores
+  const eventScore = Math.max(ratings["Party"] || 0, ratings["Music"] || 0, ratings["Culture"] || 0);
+  if (eventScore >= 0.75) return "real_event";
+
+  // Venue: high restaurant/gym/zoo + location context
+  if ((ratings["Restaurant"] || 0) >= 0.75) return "real_venue";
+  const venueScore = Math.max(ratings["Restaurant"] || 0, ratings["Gym"] || 0, ratings["Zoo"] || 0, ratings["Beach"] || 0);
+  const locationScore = Math.max(ratings["City"] || 0, ratings["Island"] || 0);
+  if (venueScore >= 0.5 && locationScore >= 0.5) return "real_venue";
+
+  // Food/recipe: high food but NOT a restaurant review
+  if ((ratings["Food"] || 0) >= 0.75 && (ratings["Restaurant"] || 0) < 0.5) return "recipe_food";
+
+  // Vibe/inspiration: travel, fashion, aesthetic content
+  const vibeScore = Math.max(ratings["Travel"] || 0, ratings["Fashion"] || 0, ratings["Ocean"] || 0, ratings["Mountain"] || 0);
+  if (vibeScore >= 0.75) return "vibe_inspiration";
+
+  return null;
+}
+
+function classifyFromKeywords(data: any): string | null {
   const text = `${data.title || ""} ${data.description || ""}`.toLowerCase();
-  if (!text.trim() || text.length < 10) return null; // Not enough data to classify
+  if (!text.trim() || text.length < 10) return null;
 
-  if (/ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open/i.test(text)) return "real_event";
-  if (/restaurant|bar|cafe|club|rooftop|pub|venue/i.test(text) && /visit|check out|review|best|try this/i.test(text)) return "real_venue";
-  if (/recipe|cook|ingredient|how to make|easy meal|homemade/i.test(text)) return "recipe_food";
-  if (/meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political|satire/i.test(text)) return "humour_identity";
-  if (/travel|sunset|aesthetic|vibes|mood|inspo|beautiful|dreamy|goals/i.test(text)) return "vibe_inspiration";
+  // Events — expanded keywords
+  if (/ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open|live show|festival|gig|concert|sold out|rsvp|free entry|guest list|lineup|performing/i.test(text)) return "real_event";
 
-  return null; // Unknown — don't force a classification
+  // Venues — relaxed: no longer requires both venue AND action keywords
+  if (/restaurant|bar |cafe|café|club|rooftop|pub|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner/i.test(text)) return "real_venue";
+  if (/best spots|hidden gem|must visit|where to eat|where to go|food spot|date night spot|new opening|place to be/i.test(text)) return "real_venue";
+
+  // Food/recipe
+  if (/recipe|cook|ingredient|how to make|easy meal|homemade|meal prep|air fryer|what i eat|grocery haul|food hack|baking|sous vide/i.test(text)) return "recipe_food";
+
+  // Humour/identity — expanded
+  if (/meme|brainrot|pov:|npc|slay|delulu|unhinged|real ones|political|satire|relatable|crying|i can't|no way|send this to|tag someone|emotional damage|rent free/i.test(text)) return "humour_identity";
+
+  // Vibe/inspiration — only match clearly aesthetic content
+  if (/travel vlog|sunset|aesthetic|dreamy|wanderlust|bucket list|golden hour|cinematic|drone shot|nature escape/i.test(text)) return "vibe_inspiration";
+
+  return null;
+}
+
+function guessClassification(data: any, scraperData: any): string | null {
+  // Priority 1: Use Gemini vision classification from the backend
+  const geminiResult = classifyFromGemini(scraperData?.gemini);
+  if (geminiResult) return geminiResult;
+
+  // Priority 2: Expanded keyword matching on title + description
+  return classifyFromKeywords(data);
 }
 
 // ---- MAIN HANDLER ----
@@ -182,8 +229,8 @@ Deno.serve(async (req: Request) => {
     // Step 3: Map to extraction_data format
     const extractionData = mapToExtractionData(scraperData, url, platform);
 
-    // Step 4: Simple classification from title/description (no Claude)
-    const classification = guessClassification(extractionData);
+    // Step 4: Classify using Gemini ratings + keyword fallback
+    const classification = guessClassification(extractionData, scraperData);
 
     // Step 5: Update reel row
     const { error: updateError } = await supabaseAdmin
