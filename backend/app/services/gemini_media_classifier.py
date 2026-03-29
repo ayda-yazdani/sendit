@@ -7,6 +7,60 @@ import httpx
 
 from app.schemas.media import MediaGeminiClassification, MediaScrapeResponse
 
+RATING_KEYS = [
+    "Food",
+    "Dog",
+    "Cat",
+    "Car",
+    "House",
+    "City",
+    "Island",
+    "Restaurant",
+    "Game",
+    "Movie",
+    "Phone",
+    "Laptop",
+    "Gym",
+    "Beach",
+    "Zoo",
+    "Book",
+    "Tree",
+    "Mountain",
+    "Ocean",
+    "Garden",
+    "Person",
+    "Job",
+    "School",
+    "Travel",
+    "Party",
+    "Fashion",
+    "Technology",
+    "History",
+    "Science",
+    "Fitness",
+    "Music",
+    "Culture",
+    "Weather",
+    "Business",
+    "Time",
+    "Energy",
+    "Memory",
+    "Emotion",
+    "Fear",
+    "Love",
+    "Happiness",
+    "Knowledge",
+    "Truth",
+    "Reality",
+    "Chaos",
+    "Order",
+    "Success",
+    "Failure",
+    "Luck",
+    "Idea",
+]
+ALLOWED_RATINGS = {0.0, 0.25, 0.5, 0.75, 1.0}
+
 REPO_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 GEMINI_SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "gemini_system_prompt.json"
 GEMINI_EVENT_SEARCH_PROMPT_PATH = (
@@ -14,7 +68,7 @@ GEMINI_EVENT_SEARCH_PROMPT_PATH = (
 )
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "gemini-2.5-flash-lite:generateContent"
 )
 
 
@@ -41,6 +95,23 @@ def _load_prompt(path: Path) -> str | None:
     payload = json.loads(path.read_text())
     system_prompt = str(payload.get("system_prompt", "")).strip()
     return system_prompt or None
+
+
+def _normalize_ratings(payload: object) -> dict[str, float]:
+    if not isinstance(payload, dict):
+        return {key: 0.0 for key in RATING_KEYS}
+
+    normalized: dict[str, float] = {}
+    for key in RATING_KEYS:
+        value = payload.get(key, 0.0)
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            score = 0.0
+        if score not in ALLOWED_RATINGS:
+            score = min(ALLOWED_RATINGS, key=lambda allowed: abs(allowed - score))
+        normalized[key] = score
+    return normalized
 
 
 class GeminiMediaClassifier:
@@ -112,17 +183,9 @@ class GeminiMediaClassifier:
         classification = MediaGeminiClassification(
             location=parsed.get("location"),
             event=parsed.get("event"),
+            ratings=_normalize_ratings(parsed.get("ratings")),
             raw_text=raw_text,
         )
-
-        if classification.event is True:
-            enriched = await self._enrich_event_details(
-                api_key=api_key,
-                payload=payload,
-                initial=classification,
-            )
-            if enriched is not None:
-                return enriched
 
         return classification
 
@@ -208,6 +271,7 @@ class GeminiMediaClassifier:
                 event=True,
                 price=None,
                 time=None,
+                ratings=initial.ratings,
                 raw_text=raw_text,
             )
 
@@ -216,5 +280,6 @@ class GeminiMediaClassifier:
             event=True,
             price=parsed.get("price"),
             time=parsed.get("time"),
+            ratings=initial.ratings,
             raw_text=raw_text,
         )

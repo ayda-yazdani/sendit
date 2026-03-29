@@ -39,6 +39,7 @@ class MediaGeminiClassification(BaseModel):
     event: bool | None = None
     price: str | None = None
     time: str | None = None
+    ratings: dict[str, float] = Field(default_factory=dict)
     raw_text: str | None = None
 
 
