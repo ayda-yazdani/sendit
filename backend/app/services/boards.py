@@ -482,7 +482,6 @@ class BoardsService:
             f"{self._supabase_url}/rest/v1/members",
             params={
                 "board_id": f"eq.{board_id}",
-                "order": "created_at.asc",
                 "limit": limit,
                 "offset": offset,
             },
