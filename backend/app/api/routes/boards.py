@@ -269,6 +269,28 @@ async def add_reel_to_board(
     }
 
 
+@router.post("/{board_id}/reels/{reel_id}/extract")
+async def extract_reel(
+    board_id: str,
+    reel_id: str,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+    instagram_service: InstagramReelScraperService = Depends(get_instagram_reel_scraper_service),
+    tiktok_service: TikTokVideoScraperService = Depends(get_tiktok_video_scraper_service),
+    youtube_service: YouTubeShortsScraperService = Depends(get_youtube_shorts_scraper_service),
+) -> dict:
+    """Scrape, classify, and save extraction data for a reel."""
+    scraper = MediaScraperService(
+        instagram_service=instagram_service,
+        tiktok_service=tiktok_service,
+        youtube_service=youtube_service,
+        gemini_classifier=GeminiMediaClassifier(),
+    )
+    return await service.extract_and_classify_reel(
+        board_id=board_id, reel_id=reel_id, scraper_service=scraper
+    )
+
+
 @router.delete(
     "/{board_id}/reels/{reel_id}",
     response_model=ReelDeleteResponse,

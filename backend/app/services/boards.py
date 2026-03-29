@@ -902,6 +902,80 @@ class BoardsService:
 
         return None
 
+    # ===== Extract & Classify Methods =====
+
+    async def extract_and_classify_reel(
+        self, board_id: str, reel_id: str, scraper_service: object
+    ) -> dict:
+        """Scrape a reel URL, classify it, and update the DB."""
+        await self._verify_board_exists(board_id)
+
+        # Fetch the reel to get its URL
+        response = await self._http_client.get(
+            f"{self._supabase_url}/rest/v1/reels",
+            params={
+                "id": f"eq.{reel_id}",
+                "board_id": f"eq.{board_id}",
+                "select": "id,url",
+            },
+            headers=self._headers,
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail="Could not fetch reel.")
+        rows = response.json()
+        if not rows:
+            raise HTTPException(status_code=404, detail="Reel not found.")
+
+        reel_url = rows[0]["url"]
+
+        from app.schemas.media import MediaScrapeRequest
+
+        extraction_data = {}
+        gemini_data = None
+
+        try:
+            scrape_result = await scraper_service.scrape(MediaScrapeRequest(url=reel_url))
+            extraction_data = {
+                "title": scrape_result.title,
+                "description": scrape_result.description,
+                "thumbnail_url": str(scrape_result.cover_image_url) if scrape_result.cover_image_url else None,
+                "video_url": str(scrape_result.video_url) if scrape_result.video_url else None,
+                "creator": scrape_result.user.username if scrape_result.user else None,
+                "duration": scrape_result.duration,
+                "media_id": scrape_result.media_id,
+                "canonical_url": str(scrape_result.canonical_url) if scrape_result.canonical_url else None,
+            }
+            if scrape_result.gemini:
+                gemini_data = scrape_result.gemini.model_dump()
+        except Exception:
+            pass
+
+        # Classify: Gemini first, then keywords
+        classification = self._classify_from_gemini(gemini_data)
+        if not classification:
+            classification = self._classify_from_keywords(extraction_data)
+
+        # Update the reel
+        update_payload: dict = {}
+        if extraction_data:
+            update_payload["extraction_data"] = extraction_data
+        if classification:
+            update_payload["classification"] = classification
+
+        if update_payload:
+            await self._http_client.patch(
+                f"{self._supabase_url}/rest/v1/reels",
+                params={"id": f"eq.{reel_id}"},
+                json=update_payload,
+                headers={**self._headers, "Prefer": "return=minimal"},
+            )
+
+        return {
+            "reel_id": reel_id,
+            "classification": classification,
+            "extraction_data": extraction_data,
+        }
+
     # ===== Reclassify Methods =====
 
     @staticmethod

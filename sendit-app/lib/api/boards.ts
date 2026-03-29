@@ -150,3 +150,15 @@ export async function scrapeMedia(
     session
   );
 }
+
+export async function extractReel(
+  session: PersistedAuthSession,
+  boardId: string,
+  reelId: string
+) {
+  return apiRequest<{ reel_id: string; classification: string | null; extraction_data: Record<string, unknown> }>(
+    `/api/v1/boards/${boardId}/reels/${reelId}/extract`,
+    { method: "POST" },
+    session
+  );
+}

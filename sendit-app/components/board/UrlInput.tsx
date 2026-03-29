@@ -56,7 +56,7 @@ export function UrlInput({ boardId, memberId, onReelAdded }: UrlInputProps) {
       setUrl("");
       onReelAdded?.(reel);
 
-      void invokeExtraction(reel.id, trimmedUrl);
+      void invokeExtraction(reel.id, trimmedUrl, boardId);
     } catch (err) {
       setError((err as Error).message);
     } finally {
