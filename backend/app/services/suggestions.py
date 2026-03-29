@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -17,11 +18,16 @@ from app.schemas.suggestions import (
 REPO_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    "gemini-2.5-flash:generateContent"
 )
 
 
 def _load_gemini_api_key() -> str | None:
+    # Prefer environment variable (works on Vercel and local dev)
+    env_val = os.environ.get("GEMINI_API_KEY")
+    if env_val:
+        return env_val.strip()
+    # Fallback: read from repo-root .env file (local dev only)
     if not REPO_ENV_PATH.exists():
         return None
     for raw_line in REPO_ENV_PATH.read_text().splitlines():
@@ -54,17 +60,17 @@ class SuggestionsService:
         # 1. Verify the board exists
         await self._verify_board_exists(board_id)
 
-        # 2-5. Fetch all data in parallel-ish (sequential for simplicity with httpx)
+        # 2-4. Fetch context data
         taste_profile = await self._fetch_taste_profile(board_id)
         reels = await self._fetch_reels(board_id, category=payload.category)
-        swipes = await self._fetch_swipes(user_id, board_id)
         calendar_masks = await self._fetch_calendar_masks(board_id)
 
-        # 6. Build prompt and call Gemini
+        # 5. Build prompt using request-provided swipe IDs
         prompt = self._build_prompt(
             taste_profile=taste_profile,
             reels=reels,
-            swipes=swipes,
+            liked_reel_ids=payload.liked_reel_ids,
+            disliked_reel_ids=payload.disliked_reel_ids,
             calendar_masks=calendar_masks,
             count=payload.count,
             category=payload.category,
@@ -127,21 +133,6 @@ class SuggestionsService:
             return []
         return response.json()
 
-    async def _fetch_swipes(self, user_id: str, board_id: str) -> list[dict]:
-        response = await self._http_client.get(
-            f"{self._supabase_url}/rest/v1/swipes",
-            params={
-                "user_id": f"eq.{user_id}",
-                "board_id": f"eq.{board_id}",
-                "order": "created_at.desc",
-                "limit": 500,
-            },
-            headers=self._headers,
-        )
-        if response.status_code != 200:
-            return []
-        return response.json()
-
     async def _fetch_calendar_masks(self, board_id: str) -> list[dict]:
         # Get all members of the board first
         members_response = await self._http_client.get(
@@ -177,17 +168,18 @@ class SuggestionsService:
         self,
         taste_profile: dict | None,
         reels: list[dict],
-        swipes: list[dict],
+        liked_reel_ids: list[str],
+        disliked_reel_ids: list[str],
         calendar_masks: list[dict],
         count: int,
         category: str | None,
     ) -> str:
-        # Build swipe lookup: reel_id -> direction
+        # Build swipe lookup from request-provided IDs
         swipe_map: dict[str, str] = {}
-        for swipe in swipes:
-            reel_id = swipe.get("reel_id")
-            if reel_id:
-                swipe_map[reel_id] = swipe.get("direction", "")
+        for reel_id in liked_reel_ids:
+            swipe_map[reel_id] = "right"
+        for reel_id in disliked_reel_ids:
+            swipe_map[reel_id] = "left"
 
         # Taste profile section
         profile_section = "No taste profile available yet."

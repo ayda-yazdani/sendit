@@ -99,6 +99,29 @@ export default function FlashcardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(false);
+
+  const triggerSuggestion = useCallback(async (options?: { likedIds?: string[]; dislikedIds?: string[]; category?: string }) => {
+    if (!boardId) return;
+    setIsGeneratingSuggestion(true);
+    setSuggestionError(false);
+    try {
+      const result = await generateSuggestion(
+        boardId,
+        options?.category ?? category,
+        options?.likedIds ?? [],
+        options?.dislikedIds ?? [],
+      );
+      if (result.data) {
+        setSuggestion(result.data);
+      }
+      if (result.error) {
+        setSuggestionError(true);
+      }
+    } finally {
+      setIsGeneratingSuggestion(false);
+    }
+  }, [boardId, category]);
 
   const loadData = useCallback(async (showLoading: boolean) => {
     if (!boardId || !category) return;
@@ -121,8 +144,7 @@ export default function FlashcardScreen() {
         }
       }
 
-      const generatedSuggestion = await generateSuggestion(boardId, category);
-      if (generatedSuggestion.data) setSuggestion(generatedSuggestion.data);
+      await triggerSuggestion({ category });
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -130,7 +152,7 @@ export default function FlashcardScreen() {
         setIsRefreshing(false);
       }
     }
-  }, [boardId, category, session]);
+  }, [boardId, category, session, triggerSuggestion]);
 
   useEffect(() => {
     void loadData(true);
@@ -140,20 +162,25 @@ export default function FlashcardScreen() {
     void loadData(false);
   }, [loadData]);
 
+  const likedReels = useMemo(
+    () => swipedReels.filter((s) => s.direction === "right"),
+    [swipedReels]
+  );
+  const likedIds = useMemo(
+    () => likedReels.map((item) => item.reel.id),
+    [likedReels]
+  );
+  const dislikedIds = useMemo(
+    () => swipedReels.filter((s) => s.direction === "left").map((item) => item.reel.id),
+    [swipedReels]
+  );
+
   // Trigger suggestion generation once the user has liked at least 1 reel
   useEffect(() => {
-    if (!boardId || suggestion || isGeneratingSuggestion) return;
-    const hasLikes = swipedReels.some((s) => s.direction === "right");
-    if (!hasLikes) return;
-
-    setIsGeneratingSuggestion(true);
-    generateSuggestion(boardId)
-      .then((result) => {
-        if (result.data) setSuggestion(result.data);
-      })
-      .catch((err) => console.warn("Suggestion generation failed:", err))
-      .finally(() => setIsGeneratingSuggestion(false));
-  }, [swipedReels, boardId, suggestion, isGeneratingSuggestion]);
+    if (!boardId || suggestion || isGeneratingSuggestion || suggestionError) return;
+    if (likedIds.length === 0) return;
+    void triggerSuggestion({ likedIds, dislikedIds });
+  }, [boardId, suggestion, isGeneratingSuggestion, suggestionError, likedIds, dislikedIds, triggerSuggestion]);
 
   const allSwiped = currentIndex >= reels.length;
   const currentReel = reels[currentIndex];
@@ -186,11 +213,6 @@ export default function FlashcardScreen() {
     setCurrentIndex(0);
     setSwipedReels([]);
   }, []);
-
-  const likedReels = useMemo(
-    () => swipedReels.filter((s) => s.direction === "right"),
-    [swipedReels]
-  );
 
   const label = CATEGORY_LABELS[category || ""] || category || "Reels";
   const accent = CATEGORY_COLORS[category || ""] || "#3C6E71";
@@ -566,6 +588,11 @@ const styles = StyleSheet.create({
     alignItems: "center", marginBottom: 12,
   },
   suggestionEmptyText: { fontSize: 12, fontFamily: theme.fonts.regular, color: "#666" },
+  retryButton: {
+    marginTop: 10, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 8, borderWidth: 1,
+  },
+  retryText: { fontSize: 12, fontFamily: theme.fonts.semibold },
 
   feedItem: {
     flexDirection: "row", backgroundColor: "#1a1a1a",
