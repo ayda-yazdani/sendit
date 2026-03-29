@@ -8,7 +8,7 @@ interface TasteProfileDisplayProps {
   identityLabel: string | null;
 }
 
-function TagPill({ text, color = "#666", bg = "#f5f3f0" }: { text: string; color?: string; bg?: string }) {
+function TagPill({ text, color = theme.colors.textSecondary, bg = theme.colors.bgInput }: { text: string; color?: string; bg?: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
       <Text style={[styles.pillText, { color }]}>{text}</Text>
@@ -151,47 +151,47 @@ export function TasteProfileSection({
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#eee" },
+  container: { backgroundColor: theme.colors.bgCard, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: theme.colors.borderLight },
   identityBox: {
-    backgroundColor: "#0e0c0a",
+    backgroundColor: theme.colors.bgDark,
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     alignItems: "center",
   },
-  identityLabel: { fontSize: 18, fontWeight: "bold", color: "#eeebe3", letterSpacing: 0.5, fontFamily: theme.fonts.extrabold },
+  identityLabel: { fontSize: 18, fontFamily: theme.fonts.extrabold, color: theme.colors.text, letterSpacing: 0.5 },
   section: { marginBottom: 14 },
-  sectionLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, fontFamily: theme.fonts.semibold },
+  sectionLabel: { fontSize: 11, fontFamily: theme.fonts.semibold, color: theme.colors.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
   pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pill: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  pillText: { fontSize: 13, fontWeight: "500", fontFamily: theme.fonts.semibold },
-  aestheticText: { fontSize: 15, color: "#555", fontStyle: "italic", fontFamily: theme.fonts.regular },
+  pillText: { fontSize: 13, fontFamily: theme.fonts.semibold },
+  aestheticText: { fontSize: 15, color: theme.colors.textSecondary, fontStyle: "italic", fontFamily: theme.fonts.regular },
   metaRow: { flexDirection: "row", gap: 20, marginBottom: 14 },
   metaItem: { flex: 1 },
-  metaLabel: { fontSize: 11, fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, fontFamily: theme.fonts.semibold },
-  metaValue: { fontSize: 14, color: "#555", fontFamily: theme.fonts.regular },
+  metaLabel: { fontSize: 11, fontFamily: theme.fonts.semibold, color: theme.colors.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
+  metaValue: { fontSize: 14, color: theme.colors.textSecondary, fontFamily: theme.fonts.regular },
   platformRow: { flexDirection: "row", gap: 8 },
   platformChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#f5f3f0",
+    backgroundColor: theme.colors.bgInput,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  platformName: { fontSize: 12, color: "#666", textTransform: "capitalize", fontFamily: theme.fonts.regular },
-  platformCount: { fontSize: 12, fontWeight: "700", color: "#333", fontFamily: theme.fonts.bold },
+  platformName: { fontSize: 12, color: theme.colors.textSecondary, textTransform: "capitalize", fontFamily: theme.fonts.regular },
+  platformCount: { fontSize: 12, fontFamily: theme.fonts.bold, color: theme.colors.text },
   emptyContainer: {
     alignItems: "center",
     paddingVertical: 28,
     paddingHorizontal: 20,
-    backgroundColor: "#f9f7f5",
+    backgroundColor: theme.colors.bgCard,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: theme.colors.borderLight,
   },
   emptyIcon: { fontSize: 36, marginBottom: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 6, fontFamily: theme.fonts.semibold },
-  emptyText: { fontSize: 13, color: "#999", textAlign: "center", fontFamily: theme.fonts.regular },
+  emptyTitle: { fontSize: 16, fontFamily: theme.fonts.semibold, color: theme.colors.text, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: theme.colors.textSecondary, textAlign: "center", fontFamily: theme.fonts.regular },
 });

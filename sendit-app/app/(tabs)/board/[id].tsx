@@ -208,7 +208,7 @@ export default function BoardDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: theme.colors.bgDark,
   },
 
   // Header
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 56,
     paddingBottom: 8,
-    backgroundColor: "#000",
+    backgroundColor: theme.colors.bgDark,
   },
   backButton: {
     width: 36,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   memberCount: {
     fontSize: 12,
     fontFamily: theme.fonts.regular,
-    color: "#888",
+    color: theme.colors.textMuted,
     marginTop: 2,
   },
   headerActions: {

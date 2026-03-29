@@ -55,8 +55,8 @@ export function MemberList({ members }: MemberListProps) {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  name: { fontSize: 15, color: "#333", fontWeight: "500" },
-  youBadge: { fontSize: 13, color: "#999", fontWeight: "400" },
-  empty: { fontSize: 14, color: "#999", textAlign: "center", paddingVertical: 20 },
+  avatarText: { color: "#fff", fontSize: 16, fontFamily: theme.fonts.semibold },
+  name: { fontSize: 15, color: theme.colors.text, fontFamily: theme.fonts.semibold },
+  youBadge: { fontSize: 13, color: theme.colors.textMuted, fontFamily: theme.fonts.regular },
+  empty: { fontSize: 14, color: theme.colors.textMuted, textAlign: "center", paddingVertical: 20, fontFamily: theme.fonts.regular },
 });

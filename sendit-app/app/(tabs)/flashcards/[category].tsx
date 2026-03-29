@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -55,23 +55,44 @@ const CARD_HEIGHT = Math.max(420, Math.round(SCREEN_HEIGHT * 0.6));
 const CARD_IMAGE_HEIGHT = Math.round(CARD_HEIGHT * 0.55);
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
+const DEFAULT_CATEGORY = "vibe_inspiration";
 const CATEGORY_LABELS: Record<string, string> = {
   real_event: "Events",
+  competition: "Competitions",
   real_venue: "Venues",
   recipe_food: "Food",
+  sports_fitness: "Sports",
+  outdoor_adventure: "Outdoors",
+  arts_culture: "Arts",
+  travel_explore: "Travel",
+  shopping_style: "Shopping",
+  gaming: "Gaming",
   vibe_inspiration: "Vibes",
   humour_identity: "Humour",
-  uncategorised: "Other",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  real_event: "#982649",
-  real_venue: "#3C6E71",
-  recipe_food: "#D8A48F",
+  real_event: theme.colors.primary,
+  competition: "#b44a2a",
+  real_venue: theme.colors.secondary,
+  recipe_food: theme.colors.warm,
+  sports_fitness: "#2f6f5f",
+  outdoor_adventure: "#2f5f3a",
+  arts_culture: "#7a5a2b",
+  travel_explore: "#5a8ab5",
+  shopping_style: "#7a3f5b",
+  gaming: "#2f3b7a",
   vibe_inspiration: "#284B63",
-  humour_identity: "#982649",
-  uncategorised: "#555555",
+  humour_identity: theme.colors.primaryLight,
 };
+
+const KNOWN_CATEGORIES = new Set(Object.keys(CATEGORY_LABELS));
+
+function normalizeCategory(value: string | null | undefined): string {
+  if (!value) return DEFAULT_CATEGORY;
+  if (value === "uncategorised" || value === "other") return DEFAULT_CATEGORY;
+  return KNOWN_CATEGORIES.has(value) ? value : DEFAULT_CATEGORY;
+}
 
 interface Reel {
   id: string;
@@ -92,6 +113,7 @@ export default function FlashcardScreen() {
   const { category: rawCategory, boardId: rawBoardId } = useLocalSearchParams<{ category?: string | string[]; boardId?: string | string[] }>();
   const category = Array.isArray(rawCategory) ? rawCategory[0] : rawCategory;
   const boardId = Array.isArray(rawBoardId) ? rawBoardId[0] : rawBoardId;
+  const normalizedCategory = normalizeCategory(category);
   const session = useAuthStore((state) => state.session);
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -101,6 +123,7 @@ export default function FlashcardScreen() {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
   const [suggestionError, setSuggestionError] = useState(false);
+  const prevAllSwipedRef = useRef(false);
 
   const triggerSuggestion = useCallback(async (options?: { likedIds?: string[]; dislikedIds?: string[]; category?: string }) => {
     if (!boardId) return;
@@ -109,7 +132,7 @@ export default function FlashcardScreen() {
     try {
       const result = await generateSuggestion(
         boardId,
-        options?.category ?? category,
+        options?.category ?? normalizedCategory,
         options?.likedIds ?? [],
         options?.dislikedIds ?? [],
       );
@@ -122,10 +145,10 @@ export default function FlashcardScreen() {
     } finally {
       setIsGeneratingSuggestion(false);
     }
-  }, [boardId, category]);
+  }, [boardId, normalizedCategory]);
 
   const loadData = useCallback(async (showLoading: boolean) => {
-    if (!boardId || !category) return;
+    if (!boardId) return;
     if (showLoading) {
       setIsLoading(true);
     } else {
@@ -139,13 +162,13 @@ export default function FlashcardScreen() {
         if (currentMember) {
           const data = await listBoardReels(session, boardId, currentMember.id);
           const filtered = data.filter(
-            (r: Reel) => (r.classification || "uncategorised") === category
+            (r: Reel) => normalizeCategory(r.classification) === normalizedCategory
           );
           setReels(filtered);
         }
       }
 
-      await triggerSuggestion({ category });
+      await triggerSuggestion({ category: normalizedCategory });
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -153,7 +176,7 @@ export default function FlashcardScreen() {
         setIsRefreshing(false);
       }
     }
-  }, [boardId, category, session, triggerSuggestion]);
+  }, [boardId, normalizedCategory, session, triggerSuggestion]);
 
   useEffect(() => {
     void loadData(true);
@@ -176,6 +199,9 @@ export default function FlashcardScreen() {
     [swipedReels]
   );
 
+  const allSwiped = currentIndex >= reels.length;
+  const currentReel = reels[currentIndex];
+
   // Trigger suggestion generation once the user has liked at least 1 reel
   useEffect(() => {
     if (!boardId || suggestion || isGeneratingSuggestion || suggestionError) return;
@@ -183,8 +209,17 @@ export default function FlashcardScreen() {
     void triggerSuggestion({ likedIds, dislikedIds });
   }, [boardId, suggestion, isGeneratingSuggestion, suggestionError, likedIds, dislikedIds, triggerSuggestion]);
 
-  const allSwiped = currentIndex >= reels.length;
-  const currentReel = reels[currentIndex];
+  // Refresh suggestion after all flashcards are completed.
+  useEffect(() => {
+    if (!boardId || isGeneratingSuggestion) return;
+    if (!allSwiped || prevAllSwipedRef.current) {
+      prevAllSwipedRef.current = allSwiped;
+      return;
+    }
+    prevAllSwipedRef.current = true;
+    if (reels.length === 0 || swipedReels.length === 0) return;
+    void triggerSuggestion({ likedIds, dislikedIds, category: normalizedCategory });
+  }, [allSwiped, boardId, reels.length, swipedReels.length, isGeneratingSuggestion, likedIds, dislikedIds, normalizedCategory, triggerSuggestion]);
 
   const handleSwipe = useCallback((direction: "left" | "right") => {
     if (currentIndex >= reels.length) return;
@@ -215,8 +250,8 @@ export default function FlashcardScreen() {
     setSwipedReels([]);
   }, []);
 
-  const label = CATEGORY_LABELS[category || ""] || category || "Reels";
-  const accent = CATEGORY_COLORS[category || ""] || "#3C6E71";
+  const label = CATEGORY_LABELS[normalizedCategory] || "Reels";
+  const accent = CATEGORY_COLORS[normalizedCategory] || theme.colors.secondary;
 
   if (isLoading) {
     return (
@@ -284,18 +319,18 @@ export default function FlashcardScreen() {
           {!allSwiped && (
             <View style={styles.actions}>
               <View style={styles.swipeLabel}>
-                <FontAwesome name="arrow-left" size={10} color="#555" />
+                <FontAwesome name="arrow-left" size={10} color={theme.colors.textMuted} />
                 <Text style={styles.swipeLabelText}>Nah</Text>
               </View>
 
               <View style={styles.actionButtons}>
                 {currentIndex > 0 && (
                   <Pressable style={styles.undoButton} onPress={handleUndo}>
-                    <FontAwesome name="undo" size={14} color="#888" />
+                    <FontAwesome name="undo" size={14} color={theme.colors.textMuted} />
                   </Pressable>
                 )}
                 <Pressable style={styles.skipButton} onPress={handleSkip}>
-                  <FontAwesome name="forward" size={14} color="#666" />
+                  <FontAwesome name="forward" size={14} color={theme.colors.textMuted} />
                 </Pressable>
               </View>
 
@@ -486,8 +521,8 @@ function FeedItem({ reel, accent }: { reel: Reel; accent: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
-  loadingContainer: { flex: 1, backgroundColor: "#000", alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, backgroundColor: theme.colors.bgDark },
+  loadingContainer: { flex: 1, backgroundColor: theme.colors.bgDark, alignItems: "center", justifyContent: "center" },
 
   header: {
     flexDirection: "row", alignItems: "center",
@@ -500,7 +535,7 @@ const styles = StyleSheet.create({
   },
   headerCenter: { flex: 1, marginHorizontal: 10 },
   headerTitle: { fontSize: 18, fontFamily: theme.fonts.bold, color: theme.colors.text },
-  headerSubtitle: { fontSize: 11, fontFamily: theme.fonts.regular, color: "#666" },
+  headerSubtitle: { fontSize: 11, fontFamily: theme.fonts.regular, color: theme.colors.textMuted },
   dot: { width: 10, height: 10, borderRadius: 5 },
 
   // Top section
@@ -512,7 +547,7 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     minHeight: CARD_HEIGHT,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.bgCard,
     borderRadius: 16,
     overflow: "hidden",
     shadowColor: "#000",
@@ -523,7 +558,7 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: "100%", height: CARD_IMAGE_HEIGHT,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: theme.colors.bgCardLight,
     alignItems: "center", justifyContent: "center",
   },
   cardBody: { padding: 12 },
@@ -533,11 +568,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, gap: 4,
   },
   platformText: { fontSize: 11, fontFamily: theme.fonts.semibold, textTransform: "capitalize" },
-  creator: { fontSize: 11, fontFamily: theme.fonts.regular, color: "#777", marginLeft: 8, flex: 1 },
+  creator: { fontSize: 11, fontFamily: theme.fonts.regular, color: theme.colors.textSecondary, marginLeft: 8, flex: 1 },
   cardTitle: { fontSize: 15, fontFamily: theme.fonts.bold, color: theme.colors.text, lineHeight: 18 },
   cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaText: { fontSize: 10, fontFamily: theme.fonts.regular, color: "#999" },
+  metaText: { fontSize: 10, fontFamily: theme.fonts.regular, color: theme.colors.textMuted },
 
   // Actions
   actions: {
@@ -545,7 +580,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingTop: 10,
   },
   swipeLabel: { flexDirection: "row", alignItems: "center", gap: 5 },
-  swipeLabelText: { fontSize: 12, fontFamily: theme.fonts.semibold, color: "#555" },
+  swipeLabelText: { fontSize: 12, fontFamily: theme.fonts.semibold, color: theme.colors.textMuted },
   actionButtons: { flexDirection: "row", gap: 12 },
   undoButton: {
     width: 36, height: 36, borderRadius: 18,
@@ -562,7 +597,7 @@ const styles = StyleSheet.create({
   doneContainer: { alignItems: "center", paddingVertical: 40 },
   doneEmoji: { fontSize: 32, marginBottom: 8 },
   doneTitle: { fontSize: 20, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 4 },
-  doneSubtitle: { fontSize: 13, fontFamily: theme.fonts.regular, color: "#888" },
+  doneSubtitle: { fontSize: 13, fontFamily: theme.fonts.regular, color: theme.colors.textSecondary },
   restartButton: {
     marginTop: 16,
     paddingHorizontal: 16,
@@ -579,11 +614,11 @@ const styles = StyleSheet.create({
   feedSectionTitle: { fontSize: 14, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 10 },
 
   miniSuggestion: {
-    backgroundColor: "#1a1a1a", borderRadius: 12, padding: 12,
+    backgroundColor: theme.colors.bgCard, borderRadius: 12, padding: 12,
     borderLeftWidth: 3, marginBottom: 12,
   },
   miniSuggestionLabel: {
-    fontSize: 10, fontFamily: theme.fonts.semibold, color: "#666",
+    fontSize: 10, fontFamily: theme.fonts.semibold, color: theme.colors.textMuted,
     textTransform: "uppercase", letterSpacing: 1, marginBottom: 4,
   },
   miniSuggestionWhat: {
@@ -592,10 +627,10 @@ const styles = StyleSheet.create({
   },
 
   suggestionEmpty: {
-    backgroundColor: "#1a1a1a", borderRadius: 12, padding: 14,
+    backgroundColor: theme.colors.bgCard, borderRadius: 12, padding: 14,
     alignItems: "center", marginBottom: 12,
   },
-  suggestionEmptyText: { fontSize: 12, fontFamily: theme.fonts.regular, color: "#666" },
+  suggestionEmptyText: { fontSize: 12, fontFamily: theme.fonts.regular, color: theme.colors.textSecondary },
   retryButton: {
     marginTop: 10, paddingHorizontal: 14, paddingVertical: 6,
     borderRadius: 8, borderWidth: 1,
@@ -603,11 +638,11 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 12, fontFamily: theme.fonts.semibold },
 
   feedItem: {
-    flexDirection: "row", backgroundColor: "#1a1a1a",
+    flexDirection: "row", backgroundColor: theme.colors.bgCard,
     borderRadius: 10, overflow: "hidden", marginBottom: 8,
   },
-  feedThumb: { width: 60, height: 50, backgroundColor: "#2a2a2a" },
+  feedThumb: { width: 60, height: 50, backgroundColor: theme.colors.bgCardLight },
   feedItemBody: { flex: 1, padding: 8, justifyContent: "center" },
   feedItemTitle: { fontSize: 12, fontFamily: theme.fonts.semibold, color: theme.colors.text, lineHeight: 16 },
-  feedItemMeta: { fontSize: 10, fontFamily: theme.fonts.regular, color: "#888", marginTop: 2 },
+  feedItemMeta: { fontSize: 10, fontFamily: theme.fonts.regular, color: theme.colors.textMuted, marginTop: 2 },
 });

@@ -819,10 +819,24 @@ class BoardsService:
             classification = reel.get("classification")
             if classification == "real_event":
                 activity_types.add("events")
+            elif classification == "competition":
+                activity_types.add("competitions")
             elif classification == "real_venue":
                 activity_types.add("venues")
             elif classification == "recipe_food":
                 activity_types.add("dining")
+            elif classification == "sports_fitness":
+                activity_types.add("sports")
+            elif classification == "outdoor_adventure":
+                activity_types.add("outdoors")
+            elif classification == "arts_culture":
+                activity_types.add("arts & culture")
+            elif classification == "travel_explore":
+                activity_types.add("travel")
+            elif classification == "shopping_style":
+                activity_types.add("shopping")
+            elif classification == "gaming":
+                activity_types.add("gaming")
             elif classification == "vibe_inspiration":
                 activity_types.add("inspiration")
 
@@ -1007,6 +1021,8 @@ class BoardsService:
         classification = self._classify_from_gemini(gemini_data)
         if not classification:
             classification = self._classify_from_keywords(extraction_data)
+        if not classification and extraction_data:
+            classification = "vibe_inspiration"
 
         # Update the reel
         update_payload: dict = {}
@@ -1038,26 +1054,73 @@ class BoardsService:
 
         ratings = gemini.get("ratings") or {}
 
+        def score(*keys: str) -> float:
+            return max((float(ratings.get(key, 0)) for key in keys), default=0.0)
+
+        max_rating = max((float(value) for value in ratings.values()), default=0.0)
+        if max_rating < 0.25 and gemini.get("event") is not True:
+            return None
+
+        competition_score = score("Game", "Fitness", "Success")
+
         if gemini.get("event") is True:
+            if competition_score >= 0.5:
+                return "competition"
             return "real_event"
 
-        event_score = max(ratings.get("Party", 0), ratings.get("Music", 0), ratings.get("Culture", 0))
-        if event_score >= 0.75:
+        event_score = score("Party", "Music", "Culture")
+        if event_score >= 0.5:
+            if competition_score >= 0.5:
+                return "competition"
             return "real_event"
 
-        if ratings.get("Restaurant", 0) >= 0.75:
+        if score("Fitness", "Gym") >= 0.5:
+            return "sports_fitness"
+
+        if score("Game") >= 0.5:
+            return "gaming"
+
+        if score("Restaurant") >= 0.5:
             return "real_venue"
-        venue_score = max(ratings.get("Restaurant", 0), ratings.get("Gym", 0), ratings.get("Zoo", 0), ratings.get("Beach", 0))
-        location_score = max(ratings.get("City", 0), ratings.get("Island", 0))
-        if venue_score >= 0.5 and location_score >= 0.5:
+        venue_score = score("Restaurant", "Gym", "Zoo", "Beach")
+        location_score = score("City", "Island")
+        if venue_score >= 0.5 and location_score >= 0.25:
             return "real_venue"
 
-        if ratings.get("Food", 0) >= 0.75 and ratings.get("Restaurant", 0) < 0.5:
+        if score("Food") >= 0.5 and ratings.get("Restaurant", 0) < 0.5:
             return "recipe_food"
 
-        vibe_score = max(ratings.get("Travel", 0), ratings.get("Fashion", 0), ratings.get("Ocean", 0), ratings.get("Mountain", 0))
-        if vibe_score >= 0.75:
+        if score("Mountain", "Ocean", "Beach", "Garden", "Tree") >= 0.5:
+            return "outdoor_adventure"
+
+        if score("Travel", "City", "Island") >= 0.5:
+            return "travel_explore"
+
+        if score("Culture", "History", "Science", "Knowledge") >= 0.5:
+            return "arts_culture"
+
+        if score("Fashion") >= 0.5:
+            return "shopping_style"
+
+        vibe_score = score("Energy", "Emotion", "Love", "Happiness", "Travel", "Fashion")
+        if vibe_score >= 0.5:
             return "vibe_inspiration"
+
+        bucket_scores = {
+            "competition": competition_score,
+            "sports_fitness": score("Fitness", "Gym"),
+            "gaming": score("Game"),
+            "outdoor_adventure": score("Mountain", "Ocean", "Beach", "Garden", "Tree"),
+            "travel_explore": score("Travel", "City", "Island"),
+            "arts_culture": score("Culture", "History", "Science", "Knowledge"),
+            "shopping_style": score("Fashion"),
+            "real_venue": score("Restaurant", "Zoo", "Beach"),
+            "recipe_food": score("Food"),
+            "vibe_inspiration": vibe_score,
+        }
+        best_category = max(bucket_scores, key=bucket_scores.get)
+        if bucket_scores[best_category] >= 0.25:
+            return best_category
 
         return None
 
@@ -1069,6 +1132,20 @@ class BoardsService:
         if len(text.strip()) < 10:
             return None
 
+        if re.search(r"tournament|competition|championship|league|match|matchday|finals?|semi[- ]?final|qualifier|playoff|bracket|race|marathon|triathlon|vs\.?|boxing|mma|fight night|esports|scrim|round\s+one", text, re.I):
+            return "competition"
+        if re.search(r"workout|gym|training|fitness|run club|5k|10k|pilates|yoga|spin class|cycling|weightlifting|hiit|bootcamp|boxing class|sparring|practice|drills", text, re.I):
+            return "sports_fitness"
+        if re.search(r"hike|trail|camp|climb|mountain|beach|surf|outdoor|adventure|kayak|ski|snowboard|national park|wildlife|sunrise|sunset", text, re.I):
+            return "outdoor_adventure"
+        if re.search(r"museum|gallery|theatre|theater|exhibit|exhibition|art show|opera|ballet|orchestra|cinema|film festival|poetry|book club|lecture|talk|workshop", text, re.I):
+            return "arts_culture"
+        if re.search(r"travel vlog|itinerary|weekend away|road trip|flight|airport|hotel|resort|staycation|tour|abroad|wanderlust|city guide", text, re.I):
+            return "travel_explore"
+        if re.search(r"shopping|shop|haul|outfit|fashion|style|thrift|vintage|sneaker|drops?|lookbook|beauty|makeup|skincare", text, re.I):
+            return "shopping_style"
+        if re.search(r"gaming|gameplay|stream|twitch|esports|discord|cosplay|arcade|console|pc build|speedrun", text, re.I):
+            return "gaming"
         if re.search(r"ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open|live show|festival|gig|concert|sold out|rsvp|free entry|guest list|lineup|performing", text, re.I):
             return "real_event"
         if re.search(r"restaurant|\bbar\b|cafe|café|\bclub\b|rooftop|\bpub\b|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner", text, re.I):
@@ -1082,7 +1159,7 @@ class BoardsService:
         if re.search(r"travel vlog|sunset|aesthetic|dreamy|wanderlust|bucket list|golden hour|cinematic|drone shot|nature escape", text, re.I):
             return "vibe_inspiration"
 
-        return None
+        return "vibe_inspiration"
 
     async def reclassify_board_reels(self, board_id: str, scraper_service: object) -> dict:
         """Re-scrape and reclassify all unclassified reels in a board."""
@@ -1123,6 +1200,8 @@ class BoardsService:
             # Fall back to keyword matching on existing extraction_data
             if not classification:
                 classification = self._classify_from_keywords(reel.get("extraction_data"))
+            if not classification and reel.get("extraction_data"):
+                classification = "vibe_inspiration"
 
             if classification:
                 await self._http_client.patch(

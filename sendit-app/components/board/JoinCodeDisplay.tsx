@@ -51,11 +51,11 @@ export function JoinCodeDisplay({ board, onDone, variant = "created" }: JoinCode
 const styles = StyleSheet.create({
   container: { alignItems: "center", padding: 8 },
   emoji: { fontSize: 48, marginBottom: 12 },
-  title: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 4 },
-  boardName: { fontSize: 16, color: "#666", marginBottom: 24 },
-  codeBox: { backgroundColor: "#f5f0eb", borderRadius: 16, padding: 24, alignItems: "center", marginBottom: 16, width: "100%" },
-  codeLabel: { fontSize: 12, color: "#999", textTransform: "uppercase", marginBottom: 8 },
-  code: { fontSize: 36, fontWeight: "bold", color: theme.colors.primary, letterSpacing: 6 },
-  hint: { fontSize: 13, color: "#999", textAlign: "center", marginBottom: 24, maxWidth: 260 },
+  title: { fontSize: 24, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 4 },
+  boardName: { fontSize: 16, fontFamily: theme.fonts.regular, color: theme.colors.textSecondary, marginBottom: 24 },
+  codeBox: { backgroundColor: theme.colors.bgCardLight, borderRadius: 16, padding: 24, alignItems: "center", marginBottom: 16, width: "100%", borderWidth: 1, borderColor: theme.colors.borderLight },
+  codeLabel: { fontSize: 12, color: theme.colors.textMuted, textTransform: "uppercase", marginBottom: 8, fontFamily: theme.fonts.semibold, letterSpacing: 1 },
+  code: { fontSize: 36, fontFamily: theme.fonts.bold, color: theme.colors.warm, letterSpacing: 6 },
+  hint: { fontSize: 13, color: theme.colors.textMuted, textAlign: "center", marginBottom: 24, maxWidth: 260, fontFamily: theme.fonts.regular },
   button: { width: "100%", marginBottom: 8 },
 });

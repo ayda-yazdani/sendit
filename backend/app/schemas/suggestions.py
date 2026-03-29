@@ -7,7 +7,18 @@ class SuggestionsGenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     category: Literal[
-        "real_event", "real_venue", "recipe_food", "vibe_inspiration", "humour_identity"
+        "real_event",
+        "competition",
+        "real_venue",
+        "recipe_food",
+        "sports_fitness",
+        "outdoor_adventure",
+        "arts_culture",
+        "travel_explore",
+        "shopping_style",
+        "gaming",
+        "vibe_inspiration",
+        "humour_identity",
     ] | None = Field(default=None, description="Filter reels by classification category")
     count: int = Field(default=5, ge=1, le=20, description="Number of suggestions to generate")
     liked_reel_ids: list[str] = Field(default_factory=list, description="Reel IDs the user swiped right on")

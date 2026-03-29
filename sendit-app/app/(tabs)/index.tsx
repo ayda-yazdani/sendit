@@ -414,7 +414,7 @@ export default function BoardListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: theme.colors.bgDark,
   },
 
   // Header
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 12,
-    backgroundColor: "#000",
+    backgroundColor: theme.colors.bgDark,
   },
   logo: {
     fontFamily: theme.fonts.display,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   card: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: theme.colors.bgCard,
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -493,13 +493,13 @@ const styles = StyleSheet.create({
   cardImage: {
     width: "100%",
     height: 120,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: theme.colors.bgCardLight,
   },
   cardContent: {
     padding: 16,
   },
   cardTitle: {
-    color: "#ffffff",
+    color: theme.colors.text,
     fontSize: 18,
     fontFamily: theme.fonts.bold,
     lineHeight: 24,
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   cardCode: {
-    color: "#888",
+    color: theme.colors.textMuted,
     fontSize: 13,
     fontFamily: theme.fonts.regular,
   },
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   emptyHint: {
     fontSize: 14,
     fontFamily: theme.fonts.regular,
-    color: "#888",
+    color: theme.colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 28,
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 15,
-    color: "#888",
+    color: theme.colors.textMuted,
     fontFamily: theme.fonts.regular,
   },
 });

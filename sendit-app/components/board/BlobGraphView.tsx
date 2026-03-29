@@ -6,6 +6,27 @@ import { ActivityBlob, getBlobSize } from "./ActivityBlob";
 import { theme } from "@/constants/Theme";
 
 const MAX_BLOBS = 6;
+const DEFAULT_CATEGORY = "vibe_inspiration";
+const KNOWN_CATEGORIES = new Set([
+  "real_event",
+  "competition",
+  "real_venue",
+  "recipe_food",
+  "sports_fitness",
+  "outdoor_adventure",
+  "arts_culture",
+  "travel_explore",
+  "shopping_style",
+  "gaming",
+  "vibe_inspiration",
+  "humour_identity",
+]);
+
+function normalizeCategory(value: string | null | undefined): string {
+  if (!value) return DEFAULT_CATEGORY;
+  if (value === "uncategorised" || value === "other") return DEFAULT_CATEGORY;
+  return KNOWN_CATEGORIES.has(value) ? value : DEFAULT_CATEGORY;
+}
 
 interface Reel {
   id: string;
@@ -36,7 +57,7 @@ function clusterReels(reels: Reel[]): BlobCluster[] {
   const groups: Record<string, Reel[]> = {};
 
   for (const reel of reels) {
-    const cat = reel.classification || "uncategorised";
+    const cat = normalizeCategory(reel.classification);
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(reel);
   }

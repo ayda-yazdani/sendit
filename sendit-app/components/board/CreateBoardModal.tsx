@@ -49,11 +49,11 @@ export function CreateBoardModal({ visible, onClose, onCreated }: CreateBoardMod
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  handle: { width: 36, height: 4, backgroundColor: "#ddd", borderRadius: 2, alignSelf: "center", marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#333", marginBottom: 4, fontFamily: theme.fonts.bold },
-  subtitle: { fontSize: 14, color: "#999", marginBottom: 24, fontFamily: theme.fonts.regular },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.overlay },
+  sheet: { backgroundColor: theme.colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  handle: { width: 36, height: 4, backgroundColor: theme.colors.borderLight, borderRadius: 2, alignSelf: "center", marginBottom: 20 },
+  title: { fontSize: 22, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 24, fontFamily: theme.fonts.regular },
   cancelButton: { alignItems: "center", marginTop: 12, padding: 8 },
-  cancelText: { fontSize: 15, color: "#999", fontFamily: theme.fonts.regular },
+  cancelText: { fontSize: 15, color: theme.colors.textMuted, fontFamily: theme.fonts.regular },
 });

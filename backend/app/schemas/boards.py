@@ -88,7 +88,18 @@ class ReelResponse(BaseModel):
     url: str
     platform: Literal["youtube", "instagram", "tiktok", "x", "other"]
     classification: Literal[
-        "real_event", "real_venue", "vibe_inspiration", "recipe_food", "humour_identity"
+        "real_event",
+        "competition",
+        "real_venue",
+        "recipe_food",
+        "sports_fitness",
+        "outdoor_adventure",
+        "arts_culture",
+        "travel_explore",
+        "shopping_style",
+        "gaming",
+        "vibe_inspiration",
+        "humour_identity",
     ] | None = None
     extraction_data: dict[str, Any] | None = None
     created_at: datetime

@@ -16,10 +16,12 @@ export const theme = {
     warmLight: "#e0b5a2",
 
     // Text
-    text: "#f0ece6",
-    textSecondary: "#8a9bb5",
-    textMuted: "#5a7094",
-    textDark: "#1a3347",
+    text: "#f7f3ed",
+    textSecondary: "#c9d4e4",
+    textMuted: "#9fb0c6",
+    textDark: "#1a2b3b",
+    textDarkSecondary: "#4b6076",
+    textDarkMuted: "#6f8196",
 
     // Semantic
     success: "#3C6E71",

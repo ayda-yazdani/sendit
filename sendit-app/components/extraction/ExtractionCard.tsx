@@ -47,9 +47,16 @@ interface ExtractionCardProps {
 
 const CLASSIFICATION_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   real_event: { label: "Event", color: "#9b1b4a", bg: "rgba(155,27,74,0.15)" },
+  competition: { label: "Competition", color: "#b44a2a", bg: "rgba(180,74,42,0.15)" },
   real_venue: { label: "Venue", color: "#4d8a8a", bg: "rgba(77,138,138,0.15)" },
   vibe_inspiration: { label: "Vibe", color: "#c9917a", bg: "rgba(201,145,122,0.15)" },
   recipe_food: { label: "Food", color: "#a3b899", bg: "rgba(163,184,153,0.15)" },
+  sports_fitness: { label: "Sports", color: "#2f6f5f", bg: "rgba(47,111,95,0.15)" },
+  outdoor_adventure: { label: "Outdoors", color: "#2f5f3a", bg: "rgba(47,95,58,0.15)" },
+  arts_culture: { label: "Arts", color: "#7a5a2b", bg: "rgba(122,90,43,0.15)" },
+  travel_explore: { label: "Travel", color: "#5a8ab5", bg: "rgba(90,138,181,0.15)" },
+  shopping_style: { label: "Shopping", color: "#7a3f5b", bg: "rgba(122,63,91,0.15)" },
+  gaming: { label: "Gaming", color: "#2f3b7a", bg: "rgba(47,59,122,0.15)" },
   humour_identity: { label: "Identity", color: "#b8265e", bg: "rgba(184,38,94,0.15)" },
 };
 
@@ -178,7 +185,7 @@ export function ExtractionCard({
       )}
 
       {/* Booking button for events */}
-      {data.booking_url && classification === "real_event" && (
+      {data.booking_url && (classification === "real_event" || classification === "competition") && (
         <Pressable
           style={styles.bookingButton}
           onPress={(e) => {

@@ -15,32 +15,47 @@ import { theme } from "@/constants/Theme";
 // Gradient palettes per vibe category — from our colour palette
 const BLOB_GRADIENTS: Record<string, [string, string, string]> = {
   real_event:       ["#982649", "#D8A48F", "#982649"],
+  competition:      ["#b44a2a", "#f0b37a", "#b44a2a"],
   real_venue:       ["#3C6E71", "#94C595", "#3C6E71"],
   recipe_food:      ["#D8A48F", "#94C595", "#D8A48F"],
+  sports_fitness:   ["#2f6f5f", "#6cc4a1", "#2f6f5f"],
+  outdoor_adventure:["#2f5f3a", "#7dbd7a", "#2f5f3a"],
+  arts_culture:     ["#7a5a2b", "#d1b06a", "#7a5a2b"],
+  travel_explore:   ["#284B63", "#5a8ab5", "#284B63"],
+  shopping_style:   ["#7a3f5b", "#d19ab0", "#7a3f5b"],
+  gaming:           ["#2f3b7a", "#7b8edc", "#2f3b7a"],
   vibe_inspiration: ["#284B63", "#3C6E71", "#284B63"],
   humour_identity:  ["#982649", "#284B63", "#982649"],
-  uncategorised:    ["#353535", "#555555", "#353535"],
-  other:            ["#3C6E71", "#D8A48F", "#3C6E71"],
 };
 
 const BLOB_LABELS: Record<string, string> = {
   real_event: "Events",
+  competition: "Competitions",
   real_venue: "Venues",
   recipe_food: "Food",
+  sports_fitness: "Sports",
+  outdoor_adventure: "Outdoors",
+  arts_culture: "Arts",
+  travel_explore: "Travel",
+  shopping_style: "Shopping",
+  gaming: "Gaming",
   vibe_inspiration: "Vibes",
   humour_identity: "Humour",
-  uncategorised: "Other",
-  other: "More",
 };
 
 const BLOB_ICONS: Record<string, keyof typeof FontAwesome.glyphMap> = {
   real_event: "calendar",
+  competition: "trophy",
   real_venue: "map-marker",
   recipe_food: "cutlery",
+  sports_fitness: "heartbeat",
+  outdoor_adventure: "tree",
+  arts_culture: "paint-brush",
+  travel_explore: "plane",
+  shopping_style: "shopping-bag",
+  gaming: "gamepad",
   vibe_inspiration: "leaf",
   humour_identity: "smile-o",
-  uncategorised: "ellipsis-h",
-  other: "ellipsis-h",
 };
 
 export function getBlobSize(reelCount: number, minSize = 100, maxSize = 180) {
@@ -132,7 +147,7 @@ export function ActivityBlob({
   }));
 
   const gradients = BLOB_GRADIENTS[category] || BLOB_GRADIENTS.vibe_inspiration;
-  const label = BLOB_LABELS[category] || category;
+  const label = BLOB_LABELS[category] || BLOB_LABELS.vibe_inspiration;
   const iconName = BLOB_ICONS[category] || "circle";
 
   return (

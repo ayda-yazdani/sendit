@@ -150,7 +150,7 @@ Deno.serve(async (req: Request) => {
     const now = new Date();
     const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const urgentEvents = (reels || []).filter(r => {
-      if (r.classification !== "real_event") return false;
+      if (r.classification !== "real_event" && r.classification !== "competition") return false;
       const eventDate = r.extraction_data?.date;
       if (!eventDate) return false;
       const d = new Date(eventDate);

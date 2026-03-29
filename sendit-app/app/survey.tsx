@@ -230,7 +230,7 @@ export default function SurveyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: theme.colors.bgDark,
   },
 
   // Progress
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     fontFamily: theme.fonts.regular,
-    color: "#666",
+    color: theme.colors.textMuted,
   },
 
   // Back
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     fontFamily: theme.fonts.regular,
-    color: "#888",
+    color: theme.colors.textSecondary,
   },
 
   // Tags
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 15,
     fontFamily: theme.fonts.semibold,
-    color: "#aaa",
+    color: theme.colors.textSecondary,
   },
 
   // Bottom
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   selectedCount: {
     fontSize: 13,
     fontFamily: theme.fonts.regular,
-    color: "#666",
+    color: theme.colors.textMuted,
   },
   nextButton: {
     paddingHorizontal: 32,
