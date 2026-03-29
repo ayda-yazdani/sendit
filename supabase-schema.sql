@@ -85,12 +85,25 @@ create table calendar_masks (
   synced_at timestamptz default now()
 );
 
+-- User media scrape history
+create table media_scrapes (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null,
+  requested_url text not null,
+  platform text,
+  media_id text,
+  canonical_url text,
+  response_data jsonb not null,
+  created_at timestamptz default now()
+);
+
 -- Enable Realtime on key tables
 alter publication supabase_realtime add table boards;
 alter publication supabase_realtime add table reels;
 alter publication supabase_realtime add table commitments;
 alter publication supabase_realtime add table taste_profiles;
 alter publication supabase_realtime add table suggestions;
+alter publication supabase_realtime add table media_scrapes;
 
 -- RLS Policies (permissive for hackathon - tighten post-hackathon)
 alter table boards enable row level security;
@@ -101,6 +114,7 @@ alter table suggestions enable row level security;
 alter table commitments enable row level security;
 alter table events enable row level security;
 alter table calendar_masks enable row level security;
+alter table media_scrapes enable row level security;
 
 create policy "Allow all on boards" on boards for all using (true) with check (true);
 create policy "Allow all on members" on members for all using (true) with check (true);
@@ -110,3 +124,4 @@ create policy "Allow all on suggestions" on suggestions for all using (true) wit
 create policy "Allow all on commitments" on commitments for all using (true) with check (true);
 create policy "Allow all on events" on events for all using (true) with check (true);
 create policy "Allow all on calendar_masks" on calendar_masks for all using (true) with check (true);
+create policy "Allow all on media_scrapes" on media_scrapes for all using (true) with check (true);
