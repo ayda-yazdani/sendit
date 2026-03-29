@@ -36,7 +36,8 @@ export default function RootLayout() {
     Nunito_900Black,
     RubikBubbles_400Regular,
   });
-  const { isInitialized, session, surveyCompleted, initialize } = useAuthStore();
+  const { isInitialized, session, surveyCompleted, surveyRequired, initialize } =
+    useAuthStore();
 
   useEffect(() => { if (error) throw error; }, [error]);
   useEffect(() => { initialize(); }, [initialize]);
@@ -45,8 +46,8 @@ export default function RootLayout() {
   if (!loaded || !isInitialized) return null;
   if (!session) return <AuthScreen />;
 
-  // Show survey if user hasn't completed it
-  if (!surveyCompleted) return <SurveyScreen />;
+  // Only require survey for new signups.
+  if (surveyRequired && !surveyCompleted) return <SurveyScreen />;
 
   return <RootLayoutNav />;
 }

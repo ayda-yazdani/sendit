@@ -4,10 +4,12 @@ import {
   getCurrentUser,
   loadSession,
   loadSurveyCompleted,
+  loadSurveyRequired,
   logIn,
   logOut,
   saveSession,
   saveSurveyCompleted,
+  saveSurveyRequired,
   signUp,
 } from "@/lib/api/auth";
 import { PersistedAuthSession } from "@/lib/api/types";
@@ -17,6 +19,7 @@ interface AuthState {
   isLoading: boolean;
   isInitialized: boolean;
   surveyCompleted: boolean;
+  surveyRequired: boolean;
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
@@ -29,20 +32,20 @@ export const useAuthStore = create<AuthState>()((set) => ({
   isLoading: false,
   isInitialized: false,
   surveyCompleted: false,
+  surveyRequired: false,
 
   initialize: async () => {
     set({ isLoading: true });
 
     try {
-      const [storedSession, storedSurveyCompleted] = await Promise.all([
-        loadSession(),
-        loadSurveyCompleted(),
-      ]);
+      const [storedSession, storedSurveyCompleted, storedSurveyRequired] =
+        await Promise.all([loadSession(), loadSurveyCompleted(), loadSurveyRequired()]);
 
       if (!storedSession) {
         set({
           session: null,
           surveyCompleted: storedSurveyCompleted,
+          surveyRequired: false,
           isInitialized: true,
           isLoading: false,
         });
@@ -53,12 +56,18 @@ export const useAuthStore = create<AuthState>()((set) => ({
       const session = { ...storedSession, user: me.user };
       const surveyCompleted =
         Boolean(me.user.user_metadata?.survey_completed) || storedSurveyCompleted;
+      const surveyRequired = storedSurveyRequired && !surveyCompleted;
+
+      if (storedSurveyRequired && surveyCompleted) {
+        await saveSurveyRequired(false);
+      }
 
       await saveSession(session);
 
       set({
         session,
         surveyCompleted,
+        surveyRequired,
         isInitialized: true,
         isLoading: false,
       });
@@ -83,11 +92,12 @@ export const useAuthStore = create<AuthState>()((set) => ({
       }
 
       const session = { user: response.user, session: response.session };
-      await saveSession(session);
+      await Promise.all([saveSession(session), saveSurveyRequired(false)]);
 
       set({
         session,
         surveyCompleted: Boolean(response.user.user_metadata?.survey_completed),
+        surveyRequired: false,
         isLoading: false,
       });
     } catch (error) {
@@ -108,11 +118,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
       }
 
       const session = { user: response.user, session: response.session };
-      await saveSession(session);
+      const surveyCompleted = Boolean(response.user.user_metadata?.survey_completed);
+      const surveyRequired = !surveyCompleted;
+      await Promise.all([
+        saveSession(session),
+        saveSurveyRequired(surveyRequired),
+      ]);
 
       set({
         session,
-        surveyCompleted: Boolean(response.user.user_metadata?.survey_completed),
+        surveyCompleted,
+        surveyRequired,
         isLoading: false,
       });
     } catch (error) {
@@ -131,12 +147,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
       }
     }
 
-    await Promise.all([saveSession(null), saveSurveyCompleted(false)]);
-    set({ session: null, surveyCompleted: false });
+    await Promise.all([
+      saveSession(null),
+      saveSurveyCompleted(false),
+      saveSurveyRequired(false),
+    ]);
+    set({ session: null, surveyCompleted: false, surveyRequired: false });
   },
 
   markSurveyCompleted: async () => {
-    await saveSurveyCompleted(true);
-    set({ surveyCompleted: true });
+    await Promise.all([saveSurveyCompleted(true), saveSurveyRequired(false)]);
+    set({ surveyCompleted: true, surveyRequired: false });
   },
 }));

@@ -26,8 +26,12 @@ export function CreateBoardModal({ visible, onClose, onCreated }: CreateBoardMod
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => { setBoardName(""); setDisplayName(""); onClose(); }}
+        />
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.title}>Create Board</Text>

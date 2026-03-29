@@ -5,6 +5,7 @@ import { AuthResponse, PersistedAuthSession } from "./types";
 
 const SESSION_STORAGE_KEY = "sendit.auth.session";
 const SURVEY_STORAGE_KEY = "sendit.survey.completed";
+const SURVEY_REQUIRED_STORAGE_KEY = "sendit.survey.required";
 
 export async function signUp(email: string, password: string, displayName: string) {
   return apiRequest<AuthResponse>("/api/v1/auth/signup", {
@@ -65,4 +66,16 @@ export async function saveSurveyCompleted(value: boolean) {
 
 export async function loadSurveyCompleted() {
   return (await SecureStore.getItemAsync(SURVEY_STORAGE_KEY)) === "true";
+}
+
+export async function saveSurveyRequired(value: boolean) {
+  if (value) {
+    await SecureStore.setItemAsync(SURVEY_REQUIRED_STORAGE_KEY, "true");
+    return;
+  }
+  await SecureStore.deleteItemAsync(SURVEY_REQUIRED_STORAGE_KEY);
+}
+
+export async function loadSurveyRequired() {
+  return (await SecureStore.getItemAsync(SURVEY_REQUIRED_STORAGE_KEY)) === "true";
 }

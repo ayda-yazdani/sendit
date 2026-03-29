@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   Modal,
   RefreshControl,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -89,6 +93,42 @@ export default function BoardListScreen() {
   const [renameValue, setRenameValue] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const joinSheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  const closeJoin = () => {
+    setShowJoin(false);
+    setJoinCode("");
+    setJoinName("");
+    joinSheetTranslateY.setValue(0);
+  };
+
+  const joinPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) {
+          joinSheetTranslateY.setValue(gesture.dy);
+        }
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 120 || gesture.vy > 0.9) {
+          Animated.timing(joinSheetTranslateY, {
+            toValue: 420,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => closeJoin());
+        } else {
+          Animated.spring(joinSheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 20,
+            stiffness: 220,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => { if (session) fetchBoards(); }, [session]);
 
@@ -107,9 +147,7 @@ export default function BoardListScreen() {
     setIsJoining(true);
     try {
       const board = await useBoardStore.getState().joinBoard(joinCode, joinName);
-      setShowJoin(false);
-      setJoinCode("");
-      setJoinName("");
+      closeJoin();
       router.push(`/board/${board.id}`);
     } catch {} finally {
       setIsJoining(false);
@@ -235,9 +273,19 @@ export default function BoardListScreen() {
       </Modal>
 
       {/* Join Board Modal */}
-      <Modal visible={showJoin} animationType="slide" transparent>
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
+      <Modal visible={showJoin} animationType="slide" transparent onRequestClose={closeJoin}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeJoin}
+          />
+          <Animated.View
+            style={[styles.sheet, { transform: [{ translateY: joinSheetTranslateY }] }]}
+            {...joinPanResponder.panHandlers}
+          >
             <View style={styles.handle} />
             <Text style={styles.sheetTitle}>Join Board</Text>
             <Input
@@ -268,13 +316,13 @@ export default function BoardListScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => { setShowJoin(false); setJoinCode(""); setJoinName(""); }}
+              onPress={closeJoin}
               style={styles.cancelButton}
             >
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
-          </View>
-        </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Manage Board Modal */}

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Animated,
   PanResponder,
+  Linking,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -357,6 +358,13 @@ function SwipeableCard({ reel, accent, onSwipe }: { reel: Reel; accent: string; 
     onPanResponderTerminationRequest: () => false,
     onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
     onPanResponderRelease: (_, gesture) => {
+      if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
+        const targetUrl = data.canonical_url || reel.url;
+        if (targetUrl) {
+          void Linking.openURL(targetUrl);
+        }
+        return;
+      }
       if (gesture.dx > SWIPE_THRESHOLD) {
         Animated.timing(pan.x, { toValue: SCREEN_WIDTH * 1.5, duration: 250, useNativeDriver: true }).start(() => {
           onSwipe("right");
