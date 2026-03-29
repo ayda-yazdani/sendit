@@ -58,7 +58,7 @@ class BoardsService:
                 "url": payload.url,
                 "platform": payload.platform,
             },
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if response.status_code == status.HTTP_409_CONFLICT:
@@ -241,7 +241,7 @@ class BoardsService:
                 "name": payload.name,
                 "join_code": join_code,
             },
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if board_response.status_code >= status.HTTP_400_BAD_REQUEST:
@@ -258,7 +258,7 @@ class BoardsService:
                 "display_name": payload.display_name,
                 "device_id": user_device_id,
             },
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if member_response.status_code >= status.HTTP_400_BAD_REQUEST:
@@ -267,11 +267,15 @@ class BoardsService:
                 detail="Could not add creator to board.",
             )
 
+        board_data = board_response.json()
+        board = board_data[0] if isinstance(board_data, list) and board_data else {}
+
         return BoardResponse(
-            id=board_id,
-            name=payload.name,
-            join_code=join_code,
+            id=board.get("id", board_id),
+            name=board.get("name", payload.name),
+            join_code=board.get("join_code", join_code),
             member_count=1,
+            created_at=board.get("created_at", datetime.utcnow().isoformat()),
         )
 
     async def list_user_boards(self, user_device_id: str) -> BoardListResponse:
@@ -436,7 +440,7 @@ class BoardsService:
                 "display_name": payload.display_name,
                 "device_id": user_device_id,
             },
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if member_response.status_code >= status.HTTP_400_BAD_REQUEST:
@@ -534,7 +538,7 @@ class BoardsService:
             f"{self._supabase_url}/rest/v1/members",
             params={"id": f"eq.{member_id}"},
             json=update_data,
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if response.status_code >= status.HTTP_400_BAD_REQUEST:
@@ -679,7 +683,7 @@ class BoardsService:
                 f"{self._supabase_url}/rest/v1/taste_profiles",
                 params={"id": f"eq.{existing_profile['id']}"},
                 json=profile_data,
-                headers=self._headers,
+                headers={**self._headers, "Prefer": "return=representation"},
             )
         else:
             # Create new profile
@@ -688,7 +692,7 @@ class BoardsService:
             response = await self._http_client.post(
                 f"{self._supabase_url}/rest/v1/taste_profiles",
                 json=profile_data,
-                headers=self._headers,
+                headers={**self._headers, "Prefer": "return=representation"},
             )
 
         if response.status_code >= status.HTTP_400_BAD_REQUEST:
@@ -747,7 +751,7 @@ class BoardsService:
             f"{self._supabase_url}/rest/v1/taste_profiles",
             params={"id": f"eq.{existing_profile['id']}"},
             json=update_data,
-            headers=self._headers,
+            headers={**self._headers, "Prefer": "return=representation"},
         )
 
         if response.status_code >= status.HTTP_400_BAD_REQUEST:
