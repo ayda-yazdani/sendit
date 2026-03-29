@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sendit — Cross-Platform Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0e0c0a;--s:#161410;--s2:#1e1b17;--w:#eeebe3;--m:#6e6963;--a:#d4562a;--b:#1a9e76;--gold:#c49a2e;--bd:rgba(238,235,227,0.07);--bd2:rgba(238,235,227,0.13)}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--w);min-height:100vh}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 56px}
+
+/* header */
+.hd{margin-bottom:28px}
+.hd h1{font-family:'DM Serif Display',serif;font-size:26px;color:var(--w);margin-bottom:6px}
+.hd p{font-size:13px;color:var(--m);line-height:1.6;max-width:520px}
+.hd p strong{color:var(--b)}
+
+/* platform flow */
+.platform-flow{background:var(--s);border:1px solid var(--bd);border-radius:16px;padding:28px;margin-bottom:16px}
+.pf-title{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--m);margin-bottom:20px}
+
+.platforms-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
+.platform-pill{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px 8px;text-align:center}
+.platform-pill.ig{border-color:rgba(196,80,120,.3);background:rgba(196,80,120,.06)}
+.platform-pill.tt{border-color:rgba(100,200,180,.3);background:rgba(100,200,180,.06)}
+.platform-pill.yt{border-color:rgba(200,60,60,.3);background:rgba(200,60,60,.06)}
+.platform-pill.x{border-color:rgba(140,140,160,.3);background:rgba(140,140,160,.06)}
+.platform-pill.any{border-color:rgba(196,154,46,.3);background:rgba(196,154,46,.06)}
+.pp-icon{font-size:22px;margin-bottom:5px}
+.pp-name{font-size:10px;font-weight:600;color:var(--w);margin-bottom:2px}
+.pp-note{font-size:9px;color:var(--m);line-height:1.3}
+
+.arrows-row{display:flex;justify-content:center;align-items:center;gap:0;margin-bottom:12px}
+.arrow-line{flex:1;height:1px;background:var(--bd2)}
+.arrow-center{width:32px;height:32px;background:var(--a);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+
+.sendit-layer{background:rgba(212,86,42,.07);border:1.5px solid rgba(212,86,42,.25);border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center}
+.sl-title{font-size:14px;font-weight:600;color:var(--a);margin-bottom:4px}
+.sl-sub{font-size:12px;color:rgba(238,235,227,.6);line-height:1.5}
+
+.extraction-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ext-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+.ext-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--m);margin-bottom:5px}
+.ext-items{font-size:11px;color:rgba(238,235,227,.7);line-height:1.6}
+.ext-items span{display:block}
+
+/* share section */
+.share-section{background:var(--s);border:1px solid var(--bd);border-radius:14px;padding:24px;margin-bottom:16px}
+.ss-title{font-size:13px;font-weight:600;color:var(--w);margin-bottom:16px}
+.share-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sm-card{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:14px 16px}
+.sm-card.primary{border-color:rgba(26,158,118,.3);background:rgba(26,158,118,.05)}
+.sm-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sm-icon{font-size:18px}
+.sm-name{font-size:13px;font-weight:600;color:var(--w)}
+.sm-badge{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:rgba(26,158,118,.15);border:1px solid rgba(26,158,118,.3);color:var(--b);border-radius:4px;padding:2px 6px;margin-left:4px}
+.sm-desc{font-size:11px;color:var(--m);line-height:1.55}
+.sm-example{font-size:11px;color:var(--b);font-style:italic;margin-top:5px}
+
+/* url table */
+.url-section{background:var(--s);border:1px solid var(--bd);border-radius:14px;padding:24px;margin-bottom:16px}
+.url-grid{display:grid;gap:8px;margin-top:14px}
+.url-row{display:grid;grid-template-columns:140px 1fr 1fr;gap:10px;font-size:11px;padding:9px 12px;background:var(--s2);border-radius:8px;align-items:center}
+.url-row.head{font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--m);background:transparent;padding:0 12px 4px}
+.url-source{font-weight:600;color:var(--w)}
+.url-detects{color:rgba(238,235,227,.65);line-height:1.4}
+.url-limits{color:var(--m);line-height:1.4;font-style:italic}
+
+/* flag */
+.flag-box{background:rgba(196,154,46,.06);border:1px solid rgba(196,154,46,.2);border-radius:12px;padding:16px 20px}
+.flag-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--gold);margin-bottom:8px}
+.flag-text{font-size:12px;color:rgba(238,235,227,.75);line-height:1.65}
+.flag-text strong{color:var(--w)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hd">
+  <h1>Sendit — One Board. Every Platform.</h1>
+  <p>TikTok, Instagram Reels, YouTube Shorts, X clips, Reddit videos — they all share the same underlying thing: <strong>a URL.</strong> That's all Sendit needs.</p>
+</div>
+
+<!-- PLATFORM FLOW -->
+<div class="platform-flow">
+  <div class="pf-title">Input sources → single extraction layer</div>
+  <div class="platforms-row">
+    <div class="platform-pill ig">
+      <div class="pp-icon">📸</div>
+      <div class="pp-name">Instagram</div>
+      <div class="pp-note">Reels via share sheet</div>
+    </div>
+    <div class="platform-pill tt">
+      <div class="pp-icon">🎵</div>
+      <div class="pp-name">TikTok</div>
+      <div class="pp-note">Videos via share sheet</div>
+    </div>
+    <div class="platform-pill yt">
+      <div class="pp-icon">▶️</div>
+      <div class="pp-name">YouTube</div>
+      <div class="pp-note">Shorts via share sheet</div>
+    </div>
+    <div class="platform-pill x">
+      <div class="pp-icon">𝕏</div>
+      <div class="pp-name">X / Twitter</div>
+      <div class="pp-note">Video clips, paste URL</div>
+    </div>
+    <div class="platform-pill any">
+      <div class="pp-icon">🔗</div>
+      <div class="pp-name">Anything</div>
+      <div class="pp-note">Any URL, paste manually</div>
+    </div>
+  </div>
+
+  <div class="arrows-row">
+    <div class="arrow-line"></div>
+    <div class="arrow-center">↓</div>
+    <div class="arrow-line"></div>
+  </div>
+
+  <div class="sendit-layer">
+    <div class="sl-title">Sendit URL parser + AI extraction layer</div>
+    <div class="sl-sub">Receives the URL regardless of source. Detects platform. Fetches available metadata. Passes to AI for signal extraction. Platform is irrelevant to the user — they just share.</div>
+  </div>
+
+  <div class="extraction-grid">
+    <div class="ext-card">
+      <div class="ext-label">Always available</div>
+      <div class="ext-items">
+        <span>Caption / description</span>
+        <span>Hashtags</span>
+        <span>Audio track name</span>
+        <span>Platform source</span>
+      </div>
+    </div>
+    <div class="ext-card">
+      <div class="ext-label">Usually available</div>
+      <div class="ext-items">
+        <span>Creator account info</span>
+        <span>Location tags</span>
+        <span>View / like count</span>
+        <span>Date posted</span>
+      </div>
+    </div>
+    <div class="ext-card">
+      <div class="ext-label">AI infers from above</div>
+      <div class="ext-items">
+        <span>Vibe / mood</span>
+        <span>Activity type</span>
+        <span>Aesthetic register</span>
+        <span>Humour register</span>
+      </div>
+    </div>
+    <div class="ext-card">
+      <div class="ext-label">Cross-platform bonus</div>
+      <div class="ext-items">
+        <span>Platform mix = taste signal</span>
+        <span>TikTok-heavy = trends-aware</span>
+        <span>YT Shorts = longer ideas</span>
+        <span>Mix = richer profile</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE METHODS -->
+<div class="share-section">
+  <div class="ss-title">How members get content into the board</div>
+  <div class="share-methods">
+    <div class="sm-card primary">
+      <div class="sm-head"><div class="sm-icon">📤</div><div class="sm-name">iOS / Android share sheet <span class="sm-badge">Primary</span></div></div>
+      <div class="sm-desc">Sendit appears in the native share sheet of every app that has a share button — Instagram, TikTok, YouTube, Safari, Reddit. Tap share → tap Sendit → pick board → done. Works identically across all platforms.</div>
+      <div class="sm-example">Same two taps regardless of which app you're in.</div>
+    </div>
+    <div class="sm-card primary">
+      <div class="sm-head"><div class="sm-icon">📋</div><div class="sm-name">Paste any URL <span class="sm-badge">Fallback</span></div></div>
+      <div class="sm-desc">If the share sheet isn't available or someone's on desktop, they paste any video URL directly into the board. Sendit auto-detects the platform and processes it identically.</div>
+      <div class="sm-example">Copy link → open Sendit → paste. Three steps, any platform.</div>
+    </div>
+    <div class="sm-card">
+      <div class="sm-head"><div class="sm-icon">🤖</div><div class="sm-name">Future: auto-capture from group chat</div></div>
+      <div class="sm-desc">If the group grants permission, Sendit could watch for video links shared in a WhatsApp or Telegram group and auto-add them to the board. Removes the sharing step entirely.</div>
+      <div class="sm-example">Not day-one — but the natural end state.</div>
+    </div>
+    <div class="sm-card">
+      <div class="sm-head"><div class="sm-icon">🖥️</div><div class="sm-name">Browser extension</div></div>
+      <div class="sm-desc">A Chrome/Safari extension adding a "Send to Sendit" button on TikTok web, YouTube, Instagram web. One click from any browser, any platform.</div>
+      <div class="sm-example">For the group member who sends stuff from their laptop.</div>
+    </div>
+  </div>
+</div>
+
+<!-- URL TABLE -->
+<div class="url-section">
+  <div class="ss-title">What the URL parser can extract per platform</div>
+  <div class="url-grid">
+    <div class="url-row head"><div>Platform</div><div>Detects from URL / metadata</div><div>Limitation</div></div>
+    <div class="url-row">
+      <div class="url-source">📸 Instagram Reels</div>
+      <div class="url-detects">Caption, hashtags, audio name, location tag if set, account type</div>
+      <div class="url-limits">No DM access. Public reels only unless user is logged in.</div>
+    </div>
+    <div class="url-row">
+      <div class="url-source">🎵 TikTok</div>
+      <div class="url-detects">Caption, hashtags, audio track, creator region, trending signals</div>
+      <div class="url-limits">Official API limited. Third-party scrapers work for public content.</div>
+    </div>
+    <div class="url-row">
+      <div class="url-source">▶️ YouTube Shorts</div>
+      <div class="url-detects">Title, description, tags, channel category, transcript if available</div>
+      <div class="url-limits">Most permissive API of all three. Richest metadata available.</div>
+    </div>
+    <div class="url-row">
+      <div class="url-source">𝕏 Video clips</div>
+      <div class="url-detects">Tweet text, hashtags, engagement signals, topic context</div>
+      <div class="url-limits">API access costs money now. Lower priority for MVP.</div>
+    </div>
+    <div class="url-row">
+      <div class="url-source">🔗 Any other URL</div>
+      <div class="url-detects">Page title, Open Graph tags, meta description</div>
+      <div class="url-limits">Less signal than dedicated video platforms but still useful.</div>
+    </div>
+  </div>
+</div>
+
+<!-- FLAG -->
+<div class="flag-box">
+  <div class="flag-label">The one honest technical flag</div>
+  <div class="flag-text">The cross-platform architecture is clean and buildable. The only real complexity is that <strong>each platform has different API access rules</strong> — YouTube is the most open, TikTok is the most restricted, Instagram sits in the middle. For the MVP, start with YouTube Shorts and Instagram Reels — both have sufficient metadata access for good AI extraction. Add TikTok via third-party scraping APIs ($27/month) once the core is working. <strong>The user never sees any of this.</strong> To them it's just: share → board updates.</div>
+</div>
+
+</div>
+</body>
+</html>

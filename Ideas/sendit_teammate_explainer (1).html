@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sendit — What It Is</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,600;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0c0a;
+    --s: #161410;
+    --s2: #1e1b17;
+    --w: #eeebe3;
+    --m: #6e6963;
+    --a: #d4562a;
+    --b: #1a9e76;
+    --gold: #c49a2e;
+    --bd: rgba(238,235,227,0.07);
+    --bd2: rgba(238,235,227,0.13);
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--w);
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  /* logo */
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: var(--a);
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+  .logo-sub {
+    font-size: 13px;
+    color: var(--m);
+    margin-bottom: 48px;
+    letter-spacing: .02em;
+  }
+
+  /* sections */
+  .section { margin-bottom: 48px; }
+  .section-label {
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--a);
+    margin-bottom: 14px;
+  }
+
+  /* the core paragraph style — conversational */
+  p {
+    font-size: 16px;
+    line-height: 1.8;
+    color: rgba(238,235,227,0.82);
+    margin-bottom: 16px;
+  }
+  p:last-child { margin-bottom: 0; }
+  p strong { color: var(--w); font-weight: 600; }
+  p em { color: var(--b); font-style: normal; }
+
+  /* quote blocks — these are "your words" moments */
+  .quote {
+    border-left: 3px solid var(--a);
+    padding: 14px 20px;
+    background: rgba(212,86,42,0.05);
+    border-radius: 0 10px 10px 0;
+    margin: 20px 0;
+    font-size: 16px;
+    line-height: 1.75;
+    color: rgba(238,235,227,0.9);
+    font-style: italic;
+  }
+
+  /* feature list */
+  .feature-list { display: grid; gap: 10px; margin: 20px 0; }
+  .feature-item {
+    background: var(--s);
+    border: 1px solid var(--bd);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .fi-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .fi-body {}
+  .fi-title { font-size: 14px; font-weight: 600; color: var(--w); margin-bottom: 3px; }
+  .fi-desc { font-size: 13px; color: var(--m); line-height: 1.55; }
+  .fi-eg { font-size: 12px; color: var(--b); font-style: italic; margin-top: 4px; }
+
+  /* the flow */
+  .flow {
+    display: flex;
+    gap: 0;
+    align-items: flex-start;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+  .flow-step { flex: 1; min-width: 100px; text-align: center; padding: 0 6px; position: relative; }
+  .flow-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -8px;
+    top: 16px;
+    color: var(--m);
+    font-size: 14px;
+  }
+  .fs-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--a);
+    margin: 0 auto 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .fs-dot.teal { background: var(--b); }
+  .fs-label { font-size: 11px; font-weight: 600; color: var(--w); margin-bottom: 2px; }
+  .fs-desc { font-size: 10px; color: var(--m); line-height: 1.4; }
+
+  /* teal highlight box */
+  .teal-box {
+    background: rgba(26,158,118,0.07);
+    border: 1px solid rgba(26,158,118,0.2);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .tb-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--b); margin-bottom: 8px; }
+  .tb-text { font-size: 14px; color: rgba(238,235,227,0.82); line-height: 1.7; }
+  .tb-text strong { color: var(--w); }
+
+  /* gold box */
+  .gold-box {
+    background: rgba(196,154,46,0.06);
+    border: 1px solid rgba(196,154,46,0.2);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .gb-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; font-weight:700; color: var(--gold); margin-bottom: 8px; }
+  .gb-text { font-size: 14px; color: rgba(238,235,227,0.82); line-height: 1.7; }
+  .gb-text strong { color: var(--w); }
+
+  /* divider */
+  hr { border: none; border-top: 1px solid var(--bd); margin: 48px 0; }
+
+  /* heading style */
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--w);
+    margin-bottom: 16px;
+    line-height: 1.2;
+  }
+  h2 em { color: var(--a); font-style: italic; }
+
+  /* noosh connection */
+  .noosh-box {
+    background: rgba(212,86,42,0.06);
+    border: 1.5px solid rgba(212,86,42,0.2);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-top: 24px;
+  }
+  .nb-label { font-size: 10px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--a); margin-bottom:8px; }
+  .nb-text { font-size: 14px; color: rgba(238,235,227,0.82); line-height: 1.7; }
+  .nb-text strong { color: var(--w); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="logo">sendit</div>
+  <div class="logo-sub">what it is, how it works, why it matters — for the team</div>
+
+  <!-- THE OBSERVATION -->
+  <div class="section">
+    <div class="section-label">Where it starts</div>
+    <h2>You know how Gen Z friends communicate?<br><em>They send each other reels.</em></h2>
+
+    <p>Not texts. Not "hey let's hang." They see something — a rooftop bar, a restaurant, a club night, a recipe, a trip idea — and they send it to their friends with no caption, or maybe just a "we should do this." And the friend replies "yes omg" or "🔥" and then absolutely nothing happens.</p>
+
+    <p>That reel disappears into the group chat. Buried under memes and voice notes and people asking what time they're meeting. The plan that was genuinely wanted by everyone in that chat just… dies. Every time.</p>
+
+    <div class="quote">"The problem isn't that we don't know what we want to do. We literally send it to each other every day. The problem is nothing ever converts."</div>
+
+    <p>And it's not just event reels either. It's political stuff, brainrot, dark humour, aesthetic videos, throwback content, recipes, music — everything a group sends each other is actually taste data. It's a portrait of who they are as a group. It's just sitting in Instagram DMs doing nothing.</p>
+  </div>
+
+  <!-- WHAT SENDIT IS -->
+  <div class="section">
+    <div class="section-label">The idea</div>
+    <h2>A shared board where your group<br><em>drops reels from anywhere.</em></h2>
+
+    <p>One person creates a Sendit board and drops the link into their existing group chat — WhatsApp, Instagram DMs, wherever. Everyone joins in one tap. Then whenever anyone in the group sees something they'd want to do together, instead of sending it into the chat where it gets buried, they share it to the board. Two taps. Same effort as forwarding a reel to someone.</p>
+
+    <p>Works from Instagram, TikTok, YouTube Shorts, anywhere — because all Sendit needs is the URL. The platform doesn't matter to the user. They just share.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fs-dot">📲</div>
+        <div class="fs-label">Drop a reel</div>
+        <div class="fs-desc">2 taps from any app's share sheet</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-dot">🧠</div>
+        <div class="fs-label">AI reads it</div>
+        <div class="fs-desc">Extracts vibe, theme, venue, date if it's an event</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-dot">🌡</div>
+        <div class="fs-label">Pattern builds</div>
+        <div class="fs-desc">Group taste graph forms over time</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-dot teal">📅</div>
+        <div class="fs-label">Plan suggested</div>
+        <div class="fs-desc">One concrete idea, when everyone's free</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-dot teal">✨</div>
+        <div class="fs-label">Night happens</div>
+        <div class="fs-desc">Memory saved, timeline grows</div>
+      </div>
+    </div>
+
+    <p>The AI isn't pulling from an algorithm or a generic recommendations engine. It's reading what this specific group of people specifically chose to send each other. That's a fundamentally different signal — way higher intent than anything passive.</p>
+
+    <div class="teal-box">
+      <div class="tb-label">The output</div>
+      <div class="tb-text">"Three of you have been sending Japanese dinner reels for two weeks. <strong>You're all free Saturday at 7.</strong> Here's a spot in Shoreditch. Here's what to bring. Who's in?" — not a list of options, one call. No debate, no 200 messages.</div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="section">
+    <div class="section-label">The calendar bit</div>
+    <h2>Everyone links their calendar<br><em>privately.</em></h2>
+
+    <p>Each person in the group connects their Google or Apple Calendar privately. Nobody sees each other's events — not even the group. The app just computes when everyone's free and only suggests plans within those windows. It holds a free/busy mask, not your actual schedule.</p>
+
+    <p>The reason it's private is important. Not every friend group is that close. Some groups would never share calendars with each other but still want to find a time they all line up. Private by default means more people actually sign up.</p>
+  </div>
+
+  <!-- COMMITMENT -->
+  <div class="section">
+    <div class="section-label">The part that actually makes plans happen</div>
+    <h2>Because "yes we should" isn't<br><em>a commitment.</em></h2>
+
+    <p>Once a plan is suggested, the board switches to commitment mode. Everyone marks themselves in, maybe, or out. You can see who's actually committed and who's still a maybe. For ticketed events, people can drop a screenshot of their confirmation — a receipt wall showing who's bought their ticket and who hasn't. The empty avatars do the work without anyone having to say anything.</p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="fi-icon">🎟</div>
+        <div class="fi-body">
+          <div class="fi-title">Commitment board</div>
+          <div class="fi-desc">Everyone marks In / Maybe / Out. Live tally. Social contract, not a poll.</div>
+          <div class="fi-eg">"4 people said in. Tom and Priya still haven't responded. 48hrs left."</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">🧾</div>
+        <div class="fi-body">
+          <div class="fi-title">Receipt wall</div>
+          <div class="fi-desc">For ticketed events — drop your confirmation screenshot. Row of avatars, green for confirmed, grey for pending. The empty grey ones do the work.</div>
+          <div class="fi-eg">"Priya ✓ · Mehrdad ✓ · Tom ⬜ · Sofia ⬜"</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">⏰</div>
+        <div class="fi-body">
+          <div class="fi-title">The decay reminder</div>
+          <div class="fi-desc">If nobody acts on a suggestion within 72 hours, the app sends one nudge. After that it archives quietly. No nagging — one well-timed push at the right moment.</div>
+          <div class="fi-eg">"Still interested in the warehouse rave? Tickets go fast — 3 of you said yes."</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">🫸</div>
+        <div class="fi-body">
+          <div class="fi-title">The gentle shove</div>
+          <div class="fi-desc">If 3 of 5 have confirmed and 2 haven't, those 2 get a private nudge — not from the group, from the app. No public pressure.</div>
+          <div class="fi-eg">"3 of your friends have already got their tickets for Saturday."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOT JUST EVENTS -->
+  <div class="section">
+    <div class="section-label">It works for every friend group, not just "let's go out" ones</div>
+    <h2>Brainrot, political reels, dark humour —<br><em>that's taste data too.</em></h2>
+
+    <p>A lot of groups don't mainly send event content. They send each other chaos memes, political satire, dark comedy, throwback stuff, aesthetic videos. That's still a signal. It's a portrait of the group's identity — their humour register, their energy, what they find interesting. Sendit reads all of it.</p>
+
+    <p>So for a group that's more chaotic than "let's find a restaurant" — the suggestions look different. A debate dinner. A tier list session seeded from things they've actually been referencing. A cult film night matched to their humour. A documentary that lines up with the political threads they keep sending each other.</p>
+
+    <div class="gold-box">
+      <div class="gb-label">The group persona</div>
+      <div class="gb-text">Over time the board builds a picture of who the group actually is — not just what they want to do next weekend, but their whole identity as a friend group. <strong>"The Chaotic Intellectuals. Equally likely to send you a political essay or a Shrek meme."</strong> That becomes a shareable card. It's the screenshot that gets sent to the group about itself.</div>
+    </div>
+  </div>
+
+  <!-- SHARED OBJECTS -->
+  <div class="section">
+    <div class="section-label">It's not just meetups and events</div>
+    <h2>Things the group <em>owns together.</em></h2>
+
+    <p>The taste graph doesn't just suggest plans — it creates things. Shared objects that belong to the group and get richer over time.</p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="fi-icon">🎵</div>
+        <div class="fi-body">
+          <div class="fi-title">The group playlist</div>
+          <div class="fi-desc">A Spotify playlist that regenerates weekly from the music signals in the group's reels. Not anyone's personal taste — the intersection. "The Summer Friends playlist." Nobody made it, everyone recognises it.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">📜</div>
+        <div class="fi-body">
+          <div class="fi-title">The group manifesto</div>
+          <div class="fi-desc">After enough reels, the AI writes a short character study of the group — their humour, their energy, their contradictions. Not a list of interests, a portrait. Shareable. Regenerates as the taste graph evolves.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">⚡</div>
+        <div class="fi-body">
+          <div class="fi-title">The weekly debate brief</div>
+          <div class="fi-desc">For groups that send political or philosophical content — a structured brief every Sunday based on the topics they've been sending each other. The motion, the arguments on each side, a few provocations. Designed to spark a conversation that already wanted to happen.</div>
+          <div class="fi-eg">"This week's motion: 'We should all move back home after graduation.' Based on the 6 rent crisis reels you sent each other."</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">📖</div>
+        <div class="fi-body">
+          <div class="fi-title">The plans you never took</div>
+          <div class="fi-desc">An archive of every idea the group sent each other but never acted on. Not as guilt — as rediscovery. "From 4 months ago — you wanted to do a rooftop dinner. Still want to?" The graveyard of almost-plans becomes a source of future ones.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY -->
+  <div class="section">
+    <div class="section-label">After the night happens</div>
+    <h2>The night doesn't disappear into<br><em>everyone's camera roll.</em></h2>
+
+    <p>Right now when a plan actually happens, photos scatter across five different camera rolls, the group chat moves on, and three weeks later nobody can find the video from that rooftop. The memory exists only in people's heads, getting fuzzier every month.</p>
+
+    <p>When enough people commit to a plan on Sendit, the app automatically creates an event page — pre-filled with everything already known: the reel that started it, the date, the venue, who was going. It's waiting before the night even happens. After the night, it becomes the container for everything the group adds.</p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="fi-icon">📸</div>
+        <div class="fi-body">
+          <div class="fi-title">Shared photo drop</div>
+          <div class="fi-desc">A 48-hour window after the event where everyone drops their photos and videos into the event page — not the group chat. They live here permanently, labelled, findable.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">✍️</div>
+        <div class="fi-body">
+          <div class="fi-title">One-line memory</div>
+          <div class="fi-desc">Each person gets one optional prompt: "One thing you'll remember about tonight?" Five lines from five people becomes a complete picture of the night.</div>
+          <div class="fi-eg">"Tom: the queue was worth it" · "Priya: that last hour on the terrace"</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">🗓</div>
+        <div class="fi-body">
+          <div class="fi-title">Group timeline</div>
+          <div class="fi-desc">Every night the board turns into a real plan builds a scrollable timeline. A year of nights together — what you sent each other, what you actually did, what you said about it. The longer you use it, the more irreplaceable it becomes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- NOOSH CONNECTION -->
+  <div class="section">
+    <div class="section-label">The bigger picture — don't need to explain this to teammates today</div>
+    <h2>Sendit is the desire layer.<br><em>Noosh is the execution layer.</em></h2>
+
+    <p>Sendit and Noosh are the same thesis at two different levels. Sendit reads what a group wants — any plan, any activity. Noosh executes one specific type of plan: the dinner party.</p>
+
+    <p>When a group's board fills up with food reels, recipe content, aesthetic dinner videos — Sendit can hand off to Noosh. Theme pre-filled from the signals. Dish suggestions pulled from the reels they've been sending each other. The host isn't guessing what their friends want — they already know, because Sendit has been reading it.</p>
+
+    <div class="noosh-box">
+      <div class="nb-label">The full loop</div>
+      <div class="nb-text"><strong>Sendit</strong> — everything a group fantasises about together, turned into plans that happen.<br><strong>Noosh</strong> — when one of those plans is a dinner party, this is how it gets made.<br><br>Eventually they're one product. Sendit is the container. Noosh is the dinner party module inside it.</div>
+    </div>
+  </div>
+
+  <!-- WHAT WE'RE BUILDING TODAY -->
+  <div class="section">
+    <div class="section-label">What we're actually building today</div>
+    <h2>The core loop, built on Base44<br><em>in 90 minutes.</em></h2>
+
+    <p>We don't need all of the above to demo it. What we need is the moment that makes people go "oh, I get it" — which is the AI reading a URL and turning it into a specific, reasoned suggestion.</p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="fi-icon">1️⃣</div>
+        <div class="fi-body">
+          <div class="fi-title">Create a board</div>
+          <div class="fi-desc">One person creates "Summer friends." Everyone joins via a link.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">2️⃣</div>
+        <div class="fi-body">
+          <div class="fi-title">Paste reel URLs</div>
+          <div class="fi-desc">Any platform — Instagram, TikTok, YouTube. AI reads each one and extracts the signal.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">3️⃣</div>
+        <div class="fi-body">
+          <div class="fi-title">Show the taste profile building</div>
+          <div class="fi-desc">"This group: Japanese food · rooftop vibes · intimate evenings · east London."</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">4️⃣</div>
+        <div class="fi-body">
+          <div class="fi-title">The suggestion</div>
+          <div class="fi-desc">One plan. Specific. With a reason. "Three of you have been sending rooftop reels. Saturday at 7. Here's a spot. Who's in?"</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">5️⃣</div>
+        <div class="fi-body">
+          <div class="fi-title">Commitment board</div>
+          <div class="fi-desc">Priya ✓ · Mehrdad ✓ · Tom ⬜ · Sofia ⬜ — "2 people haven't committed yet." The laugh moment.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="teal-box" style="margin-top:24px;">
+      <div class="tb-label">One sentence for the judges</div>
+      <div class="tb-text"><strong>"We turn the reels your friends send each other into nights you'll actually remember."</strong></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

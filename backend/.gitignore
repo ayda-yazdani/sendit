@@ -1,9 +1,0 @@
-**/.env
-**/.env.*
-**/*.env
-**/*.env.*
-.venv
-.pytest_cache/
-tester-app/node_modules/
-__pycache__/
-*.py[cod]
