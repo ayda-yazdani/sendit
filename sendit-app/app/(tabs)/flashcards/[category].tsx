@@ -13,8 +13,9 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { supabase } from "@/lib/supabase";
-import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
+import { generateSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
+import { listBoardMembers, listBoardReels } from "@/lib/api/boards";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { theme } from "@/constants/Theme";
 
 // Decode HTML entities in URLs and text from extraction
@@ -68,6 +69,7 @@ interface SwipedReel {
 
 export default function FlashcardScreen() {
   const { category, boardId } = useLocalSearchParams<{ category: string; boardId: string }>();
+  const session = useAuthStore((state) => state.session);
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipedReels, setSwipedReels] = useState<SwipedReel[]>([]);
@@ -77,25 +79,24 @@ export default function FlashcardScreen() {
   useEffect(() => {
     if (!boardId || !category) return;
     const load = async () => {
-      const { data } = await supabase
-        .from("reels")
-        .select("*")
-        .eq("board_id", boardId)
-        .order("created_at", { ascending: false });
-
-      if (data) {
+      if (session) {
+        const members = await listBoardMembers(session, boardId);
+        const currentMember = members.find((member) => member.device_id === session.user.id);
+        if (currentMember) {
+          const data = await listBoardReels(session, boardId, currentMember.id);
         const filtered = data.filter(
           (r: Reel) => (r.classification || "vibe_inspiration") === category
         );
         setReels(filtered);
       }
+      }
 
-      const activeSuggestion = await getActiveSuggestion(boardId);
-      if (activeSuggestion) setSuggestion(activeSuggestion);
+      const generatedSuggestion = await generateSuggestion(boardId, category);
+      if (generatedSuggestion.data) setSuggestion(generatedSuggestion.data);
       setIsLoading(false);
     };
     load();
-  }, [boardId, category]);
+  }, [boardId, category, session]);
 
   const allSwiped = currentIndex >= reels.length;
   const currentReel = reels[currentIndex];
@@ -105,20 +106,6 @@ export default function FlashcardScreen() {
     const reel = reels[currentIndex];
     setSwipedReels((prev) => [...prev, { reel, direction }]);
     setCurrentIndex((prev) => prev + 1);
-
-    // Save swipe to database
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user.id && boardId) {
-        supabase.from("swipes").upsert({
-          user_id: session.user.id,
-          reel_id: reel.id,
-          board_id: boardId,
-          direction,
-        }, { onConflict: "user_id,reel_id" }).then(({ error }) => {
-          if (error) console.warn("Failed to save swipe:", error.message);
-        });
-      }
-    });
   }, [currentIndex, reels, boardId]);
 
   const handleSkip = useCallback(() => {

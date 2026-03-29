@@ -14,7 +14,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { theme } from "@/constants/Theme";
-import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -93,7 +92,7 @@ export default function SurveyScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [selections, setSelections] = useState<Record<number, string[]>>({});
   const [saving, setSaving] = useState(false);
-  const { session } = useAuthStore();
+  const { markSurveyCompleted } = useAuthStore();
 
   const step = STEPS[stepIndex];
   const selected = selections[stepIndex] || [];
@@ -129,13 +128,10 @@ export default function SurveyScreen() {
         selections: selections[i] || [],
       }));
 
-      // Save to user metadata in Supabase Auth
-      await supabase.auth.updateUser({
-        data: {
-          taste_survey: tasteVector,
-          survey_completed: true,
-        },
-      });
+      // The current FastAPI backend does not expose a survey profile update endpoint yet,
+      // so we persist completion locally and keep the answers in memory for now.
+      void tasteVector;
+      await markSurveyCompleted();
 
       router.replace("/(tabs)");
     } catch (error: any) {

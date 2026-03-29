@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "@/lib/supabase";
 import { Member } from "@/lib/stores/board-store";
 import { theme } from "@/constants/Theme";
 
@@ -46,33 +45,16 @@ export function ReceiptWall({ commitments, members, currentMemberId, suggestionI
 
     setUploading(true);
     try {
-      const asset = result.assets[0];
-      const ext = asset.uri.split(".").pop() || "jpg";
-      const fileName = `${suggestionId}/${currentMemberId}.${ext}`;
-
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-
-      const { error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(fileName, blob, { contentType: `image/${ext}`, upsert: true });
-
-      if (uploadError) {
-        Alert.alert("Upload failed", uploadError.message);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("receipts")
-        .getPublicUrl(fileName);
-
-      await supabase
-        .from("commitments")
-        .update({ receipt_url: publicUrl })
-        .eq("id", myCommitment!.id);
-
-    } catch (err) {
-      Alert.alert("Error", (err as Error).message);
+      void result.assets[0];
+      void suggestionId;
+      void currentMemberId;
+      void myCommitment;
+      Alert.alert(
+        "Not available yet",
+        "Receipt uploads are not implemented on the FastAPI backend yet."
+      );
+    } catch {
+      Alert.alert("Error", "Could not open the image picker.");
     } finally {
       setUploading(false);
     }

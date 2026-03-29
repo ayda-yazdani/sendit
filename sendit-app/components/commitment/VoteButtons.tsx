@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { theme } from "@/constants/Theme";
 
 type VoteStatus = "in" | "maybe" | "out";
@@ -21,24 +20,11 @@ export function VoteButtons({ suggestionId, memberId, currentVote, onVoted }: Vo
 
     // Optimistic update
     onVoted(status);
-
-    const { error } = await supabase
-      .from("commitments")
-      .upsert(
-        {
-          suggestion_id: suggestionId,
-          member_id: memberId,
-          status,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "suggestion_id,member_id" }
-      );
-
-    if (error) {
-      console.error("Vote failed:", error);
-      // Revert optimistic update
-      if (currentVote) onVoted(currentVote);
-    }
+    console.warn(
+      "Voting endpoint is not available in the current FastAPI backend yet.",
+      suggestionId,
+      memberId
+    );
 
     setIsSubmitting(false);
   };

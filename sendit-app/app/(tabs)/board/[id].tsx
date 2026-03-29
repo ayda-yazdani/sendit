@@ -16,9 +16,9 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRealtime } from "@/lib/hooks/use-realtime";
 import { UrlInput } from "@/components/board/UrlInput";
 import { BlobGraphView } from "@/components/board/BlobGraphView";
-import { supabase } from "@/lib/supabase";
 import { useTasteStore } from "@/lib/stores/taste-store";
 import { theme } from "@/constants/Theme";
+import { listBoardReels } from "@/lib/api/boards";
 
 interface Reel {
   id: string;
@@ -51,27 +51,18 @@ export default function BoardDetailScreen() {
     const load = async () => {
       await fetchBoardMembers(id);
 
-      if (session?.user.id) {
-        const { data: member } = await supabase
-          .from("members")
-          .select("id")
-          .eq("board_id", id)
-          .eq("user_id", session.user.id)
-          .single();
-        if (member) setCurrentMemberId(member.id);
+      const members = useBoardStore.getState().activeBoardMembers;
+      const currentMember = members.find((member) => member.device_id === session?.user.id);
+      if (session && currentMember) {
+        setCurrentMemberId(currentMember.id);
+        const reelData = await listBoardReels(session, id, currentMember.id);
+        setReels(reelData);
       }
-
-      const { data: reelData } = await supabase
-        .from("reels")
-        .select("*")
-        .eq("board_id", id)
-        .order("created_at", { ascending: false });
-      if (reelData) setReels(reelData);
 
       await fetchProfile(id);
     };
     load();
-  }, [id, session]);
+  }, [id, session, fetchBoardMembers, fetchProfile]);
 
   // Real-time reel updates
   useRealtime({
@@ -151,7 +142,11 @@ export default function BoardDetailScreen() {
       {/* URL Input — glowing, pinned to bottom */}
       {id && currentMemberId && (
         <View style={styles.urlInputContainer}>
-          <UrlInput boardId={id} memberId={currentMemberId} />
+          <UrlInput
+            boardId={id}
+            memberId={currentMemberId}
+            onReelAdded={(reel) => setReels((prev) => [reel, ...prev])}
+          />
         </View>
       )}
     </KeyboardAvoidingView>

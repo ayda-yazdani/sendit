@@ -23,8 +23,8 @@ export function SuggestionCard({ suggestion, boardId, onNewSuggestion }: Suggest
   const handleRegenerate = async () => {
     setIsRegenerating(true);
     try {
-      await archiveSuggestion(suggestion.id);
-      const result = await generateSuggestion(boardId, s.what);
+      await archiveSuggestion();
+      const result = await generateSuggestion(boardId, s.category);
       if (result.data) onNewSuggestion(result.data);
     } catch (err) {
       console.error("Regenerate failed:", err);

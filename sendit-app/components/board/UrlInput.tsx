@@ -9,9 +9,10 @@ import {
   Keyboard,
 } from "react-native";
 import { detectPlatform, isValidUrl, PLATFORM_DISPLAY } from "@/lib/utils/platform-detect";
-import { supabase } from "@/lib/supabase";
+import { addBoardReel } from "@/lib/api/boards";
 import { invokeExtraction } from "@/lib/ai/extraction";
 import { theme } from "@/constants/Theme";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 interface UrlInputProps {
   boardId: string;
@@ -23,6 +24,7 @@ export function UrlInput({ boardId, memberId, onReelAdded }: UrlInputProps) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const session = useAuthStore((state) => state.session);
 
   const trimmedUrl = url.trim();
 
@@ -40,33 +42,21 @@ export function UrlInput({ boardId, memberId, onReelAdded }: UrlInputProps) {
     Keyboard.dismiss();
 
     try {
-      const platform = detectPlatform(trimmedUrl);
-
-      const { data: reel, error: insertError } = await supabase
-        .from("reels")
-        .insert({
-          board_id: boardId,
-          added_by: memberId,
-          url: trimmedUrl,
-          platform,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        if (insertError.code === "23505") {
-          setError("This link has already been shared on this board");
-        } else {
-          setError("Failed to share link. Please try again.");
-        }
+      if (!session) {
+        setError("Please log in again.");
         return;
       }
+
+      const platform = detectPlatform(trimmedUrl);
+      const reel = await addBoardReel(session, boardId, memberId, {
+        url: trimmedUrl,
+        platform,
+      });
 
       setUrl("");
       onReelAdded?.(reel);
 
-      // Fire extraction in background
-      invokeExtraction(reel.id, trimmedUrl).catch(console.error);
+      void invokeExtraction(reel.id, trimmedUrl);
     } catch (err) {
       setError((err as Error).message);
     } finally {

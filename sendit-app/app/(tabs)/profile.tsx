@@ -4,7 +4,8 @@ import { theme } from "@/constants/Theme";
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuthStore();
-  const displayName = session?.user.user_metadata?.display_name || "User";
+  const displayName =
+    (session?.user.user_metadata?.display_name as string | undefined) || "User";
   const email = session?.user.email || "";
 
   const handleSignOut = () => {

@@ -1,6 +1,8 @@
 import { create } from "zustand";
-import { supabase } from "../supabase";
-import { TasteProfile, TasteProfileData, updateTasteProfile } from "../ai/taste-engine";
+
+import { getTasteProfile, syncTasteProfile } from "@/lib/api/boards";
+import { mapTasteProfile, TasteProfile } from "@/lib/ai/taste-engine";
+import { useAuthStore } from "./auth-store";
 
 interface TasteState {
   profile: TasteProfile | null;
@@ -11,6 +13,12 @@ interface TasteState {
   setProfile: (profile: TasteProfile) => void;
 }
 
+function requireSession() {
+  const session = useAuthStore.getState().session;
+  if (!session) throw new Error("Not authenticated");
+  return session;
+}
+
 export const useTasteStore = create<TasteState>()((set) => ({
   profile: null,
   isLoading: false,
@@ -18,30 +26,21 @@ export const useTasteStore = create<TasteState>()((set) => ({
 
   fetchProfile: async (boardId: string) => {
     set({ isLoading: true, error: null });
-    const { data, error } = await supabase
-      .from("taste_profiles")
-      .select("*")
-      .eq("board_id", boardId)
-      .single();
-
-    if (error || !data) {
+    try {
+      const profile = await getTasteProfile(requireSession(), boardId);
+      set({ profile: mapTasteProfile(profile), isLoading: false });
+    } catch {
       set({ profile: null, isLoading: false });
-      return;
     }
-    set({ profile: data as TasteProfile, isLoading: false });
   },
 
   regenerateProfile: async (boardId: string) => {
     set({ isLoading: true, error: null });
-    const result = await updateTasteProfile(boardId);
-    if (result.error) {
-      set({ isLoading: false, error: result.error });
-      return;
-    }
-    if (result.data) {
-      set({ profile: result.data, isLoading: false });
-    } else {
-      set({ isLoading: false, error: result.message || null });
+    try {
+      const profile = await syncTasteProfile(requireSession(), boardId);
+      set({ profile: mapTasteProfile(profile), isLoading: false });
+    } catch (error) {
+      set({ isLoading: false, error: (error as Error).message });
     }
   },
 

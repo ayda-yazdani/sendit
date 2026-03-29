@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { theme } from "@/constants/Theme";
-import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 export default function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,6 +21,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
+  const { signIn, signUp } = useAuthStore();
 
   async function handleAuth() {
     if (!email.trim() || !password.trim()) {
@@ -35,18 +36,9 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: { data: { display_name: displayName.trim() } },
-        });
-        if (error) throw error;
+        await signUp(email, password, displayName);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (error) throw error;
+        await signIn(email, password);
       }
     } catch (error: any) {
       Alert.alert("Error", error.message);
