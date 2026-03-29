@@ -32,6 +32,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def ensure_http_client(request: Request, call_next):
+    """Ensure http_client exists even when lifespan doesn't run (e.g. Vercel serverless)."""
+    if not hasattr(request.app.state, "http_client") or request.app.state.http_client is None:
+        request.app.state.http_client = httpx.AsyncClient(
+            timeout=settings.supabase_request_timeout_seconds
+        )
+    return await call_next(request)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(
