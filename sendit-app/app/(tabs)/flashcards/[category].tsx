@@ -75,6 +75,7 @@ export default function FlashcardScreen() {
   const [swipedReels, setSwipedReels] = useState<SwipedReel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
 
   useEffect(() => {
     if (!boardId || !category) return;
@@ -97,6 +98,21 @@ export default function FlashcardScreen() {
     };
     load();
   }, [boardId, category, session]);
+
+  // Trigger suggestion generation once the user has liked at least 1 reel
+  useEffect(() => {
+    if (!boardId || suggestion || isGeneratingSuggestion) return;
+    const hasLikes = swipedReels.some((s) => s.direction === "right");
+    if (!hasLikes) return;
+
+    setIsGeneratingSuggestion(true);
+    generateSuggestion(boardId)
+      .then((result) => {
+        if (result.data) setSuggestion(result.data);
+      })
+      .catch((err) => console.warn("Suggestion generation failed:", err))
+      .finally(() => setIsGeneratingSuggestion(false));
+  }, [swipedReels, boardId, suggestion, isGeneratingSuggestion]);
 
   const allSwiped = currentIndex >= reels.length;
   const currentReel = reels[currentIndex];
@@ -212,10 +228,15 @@ export default function FlashcardScreen() {
           <MiniSuggestion suggestion={suggestion} accent={accent} />
         ) : (
           <View style={styles.suggestionEmpty}>
+            {isGeneratingSuggestion && (
+              <ActivityIndicator size="small" color={accent} style={{ marginBottom: 8 }} />
+            )}
             <Text style={styles.suggestionEmptyText}>
-              {likedReels.length > 0
+              {isGeneratingSuggestion
                 ? "Generating personalised suggestions..."
-                : "Swipe to unlock activity suggestions"}
+                : likedReels.length > 0
+                  ? "Generating personalised suggestions..."
+                  : "Swipe to unlock activity suggestions"}
             </Text>
           </View>
         )}
