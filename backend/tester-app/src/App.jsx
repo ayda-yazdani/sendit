@@ -1,105 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const storageKey = "sendit-tester-token";
-const convolutionKernels = [
-  { label: "Identity", values: [0, 0, 0, 0, 1, 0, 0, 0, 0] },
-  { label: "Sharpen", values: [0, -1, 0, -1, 5, -1, 0, -1, 0] },
-  { label: "Edge", values: [-1, -1, -1, -1, 8, -1, -1, -1, -1] },
-  { label: "Emboss", values: [-2, -1, 0, -1, 1, 1, 0, 1, 2] },
-  { label: "Box Blur", values: [1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9] },
-  { label: "Gaussian Blur", values: [1 / 16, 2 / 16, 1 / 16, 2 / 16, 4 / 16, 2 / 16, 1 / 16, 2 / 16, 1 / 16] },
-  { label: "Laplacian", values: [0, 1, 0, 1, -4, 1, 0, 1, 0] },
-  { label: "High Pass", values: [-1, -1, -1, -1, 8, -1, -1, -1, -1] },
-  { label: "Outline", values: [-1, -1, -1, -1, 8, -1, -1, -1, -1] },
-  { label: "Ridge", values: [-1, -1, 0, -1, 0, 1, 0, 1, 1] },
-  { label: "Sobel X", values: [-1, 0, 1, -2, 0, 2, -1, 0, 1] },
-  { label: "Sobel Y", values: [-1, -2, -1, 0, 0, 0, 1, 2, 1] },
-];
-
-function clampColor(value) {
-  return Math.max(0, Math.min(255, value));
-}
-
-function applyConvolutionToCanvas(canvas, image, kernel) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-
-  const width = image.naturalWidth || image.width;
-  const height = image.naturalHeight || image.height;
-  if (!width || !height) {
-    return;
-  }
-
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(image, 0, 0, width, height);
-
-  const source = ctx.getImageData(0, 0, width, height);
-  const output = ctx.createImageData(width, height);
-  const sourceData = source.data;
-  const outputData = output.data;
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      let red = 0;
-      let green = 0;
-      let blue = 0;
-      const alphaIndex = (y * width + x) * 4 + 3;
-
-      for (let ky = -1; ky <= 1; ky += 1) {
-        for (let kx = -1; kx <= 1; kx += 1) {
-          const sampleX = Math.max(0, Math.min(width - 1, x + kx));
-          const sampleY = Math.max(0, Math.min(height - 1, y + ky));
-          const sourceIndex = (sampleY * width + sampleX) * 4;
-          const kernelValue = kernel[(ky + 1) * 3 + (kx + 1)];
-
-          red += sourceData[sourceIndex] * kernelValue;
-          green += sourceData[sourceIndex + 1] * kernelValue;
-          blue += sourceData[sourceIndex + 2] * kernelValue;
-        }
-      }
-
-      const outputIndex = (y * width + x) * 4;
-      outputData[outputIndex] = clampColor(red);
-      outputData[outputIndex + 1] = clampColor(green);
-      outputData[outputIndex + 2] = clampColor(blue);
-      outputData[outputIndex + 3] = sourceData[alphaIndex];
-    }
-  }
-
-  ctx.putImageData(output, 0, 0);
-}
-
-function ConvolutionPreview({ src, label, kernelValues }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !src) {
-      return undefined;
-    }
-
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      applyConvolutionToCanvas(canvas, image, kernelValues);
-    };
-    image.src = src;
-
-    return () => {
-      image.onload = null;
-    };
-  }, [kernelValues, src]);
-
-  return (
-    <figure className="convolution-card">
-      <canvas ref={canvasRef} />
-      <figcaption>{label}</figcaption>
-    </figure>
-  );
-}
 
 function prettyUser(user) {
   if (!user) {
@@ -379,6 +280,14 @@ export default function App() {
 
     if (promptText) {
       textParts.push(promptText);
+    }
+
+    if (
+      sourceSummary.description &&
+      sourceSummary.description !== "Nothing fetched yet." &&
+      sourceSummary.description !== "No description returned."
+    ) {
+      textParts.push(`Fetched video description:\n${sourceSummary.description}`);
     }
 
     return textParts;
@@ -968,16 +877,6 @@ export default function App() {
                       <figcaption>
                         Frame {index + 1} at {frame.timestamp_text}
                       </figcaption>
-                      <div className="convolution-grid">
-                        {convolutionKernels.map((kernel) => (
-                          <ConvolutionPreview
-                            key={`${frame.timestamp_text}-${kernel.label}`}
-                            src={frame.image_url}
-                            label={kernel.label}
-                            kernelValues={kernel.values}
-                          />
-                        ))}
-                      </div>
                     </figure>
                   ))}
                 </div>

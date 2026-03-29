@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import (
     get_instagram_reel_scraper_service,
-    get_media_scrape_history_service,
     get_supabase_auth_service,
     get_tiktok_video_scraper_service,
     get_youtube_shorts_scraper_service,
@@ -187,26 +186,6 @@ class StubYouTubeShortsScraperService:
         )
 
 
-class StubMediaScrapeHistoryService:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, object]] = []
-
-    async def record_scrape(
-        self,
-        *,
-        user_id: str,
-        requested_url: str,
-        response_payload,
-    ) -> None:
-        self.calls.append(
-            {
-                "user_id": user_id,
-                "requested_url": requested_url,
-                "response_payload": response_payload,
-            }
-        )
-
-
 @pytest.fixture
 def stub_auth_service() -> StubSupabaseAuthService:
     return StubSupabaseAuthService()
@@ -228,17 +207,11 @@ def stub_youtube_scraper_service() -> StubYouTubeShortsScraperService:
 
 
 @pytest.fixture
-def stub_media_scrape_history_service() -> StubMediaScrapeHistoryService:
-    return StubMediaScrapeHistoryService()
-
-
-@pytest.fixture
 def client(
     stub_auth_service: StubSupabaseAuthService,
     stub_instagram_scraper_service: StubInstagramReelScraperService,
     stub_tiktok_scraper_service: StubTikTokVideoScraperService,
     stub_youtube_scraper_service: StubYouTubeShortsScraperService,
-    stub_media_scrape_history_service: StubMediaScrapeHistoryService,
 ) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_supabase_auth_service] = lambda: stub_auth_service
     app.dependency_overrides[get_instagram_reel_scraper_service] = (
@@ -249,9 +222,6 @@ def client(
     )
     app.dependency_overrides[get_youtube_shorts_scraper_service] = (
         lambda: stub_youtube_scraper_service
-    )
-    app.dependency_overrides[get_media_scrape_history_service] = (
-        lambda: stub_media_scrape_history_service
     )
     with TestClient(app) as test_client:
         yield test_client
@@ -509,7 +479,6 @@ def test_scrape_youtube_short_returns_metadata_for_verified_user(
 
 def test_unified_media_scrape_returns_normalized_tiktok_payload(
     client: TestClient,
-    stub_media_scrape_history_service: StubMediaScrapeHistoryService,
 ) -> None:
     response = client.post(
         "/api/v1/media/scrape",
@@ -545,16 +514,6 @@ def test_unified_media_scrape_returns_normalized_tiktok_payload(
         "time": None,
         "gemini": None,
     }
-    assert len(stub_media_scrape_history_service.calls) == 1
-    history_call = stub_media_scrape_history_service.calls[0]
-    assert history_call["user_id"] == "user-123"
-    assert (
-        history_call["requested_url"]
-        == "https://www.tiktok.com/@creator/video/9876543210"
-    )
-    recorded_payload = history_call["response_payload"]
-    assert recorded_payload.platform == "tiktok"
-    assert recorded_payload.media_id == "9876543210"
 
 
 def test_unified_media_scrape_returns_normalized_instagram_payload(

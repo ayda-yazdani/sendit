@@ -120,13 +120,17 @@ class GeminiMediaClassifier:
         if not api_key:
             return None
 
+        text_parts: list[str] = []
+        if payload.description:
+            text_parts.append(f"Fetched video description:\n{payload.description}")
+
         image_data_urls = [
             frame.image_url
             for frame in payload.frames
             if isinstance(frame.image_url, str) and frame.image_url.startswith("data:")
         ][:8]
 
-        request_parts: list[dict[str, object]] = []
+        request_parts: list[dict[str, object]] = [{"text": text} for text in text_parts]
 
         for data_url in image_data_urls:
             header, encoded = data_url.split(",", 1)

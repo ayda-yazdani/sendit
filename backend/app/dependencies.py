@@ -4,7 +4,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import Settings, get_settings
 from app.schemas.auth import SupabaseUser
 from app.services.instagram import InstagramReelScraperService
-from app.services.media_scrape_history import MediaScrapeHistoryService
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.tiktok import TikTokVideoScraperService
 from app.services.video_frames import VideoFrameService
@@ -67,16 +66,6 @@ def get_user_profiles_service(
     settings: Settings = Depends(get_settings),
 ) -> UserProfilesService:
     return UserProfilesService(
-        http_client=request.app.state.http_client,
-        settings=settings,
-    )
-
-
-def get_media_scrape_history_service(
-    request: Request,
-    settings: Settings = Depends(get_settings),
-) -> MediaScrapeHistoryService:
-    return MediaScrapeHistoryService(
         http_client=request.app.state.http_client,
         settings=settings,
     )

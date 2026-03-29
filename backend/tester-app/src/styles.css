@@ -277,34 +277,6 @@ button.secondary {
   text-align: center;
 }
 
-.convolution-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.convolution-card {
-  margin: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.convolution-card canvas {
-  width: 100%;
-  aspect-ratio: 9 / 16;
-  display: block;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: #f1e8da;
-  object-fit: cover;
-}
-
-.convolution-card figcaption {
-  font-size: 0.76rem;
-  color: var(--muted);
-  text-align: center;
-}
-
 .meta-card {
   padding: 16px;
   border-radius: 16px;
