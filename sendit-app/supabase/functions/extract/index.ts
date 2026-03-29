@@ -156,7 +156,7 @@ function classifyFromKeywords(data: any): string | null {
   if (/ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open|live show|festival|gig|concert|sold out|rsvp|free entry|guest list|lineup|performing/i.test(text)) return "real_event";
 
   // Venues — relaxed: no longer requires both venue AND action keywords
-  if (/restaurant|bar |cafe|café|club|rooftop|pub|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner/i.test(text)) return "real_venue";
+  if (/restaurant|\bbar\b|cafe|café|\bclub\b|rooftop|\bpub\b|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner/i.test(text)) return "real_venue";
   if (/best spots|hidden gem|must visit|where to eat|where to go|food spot|date night spot|new opening|place to be/i.test(text)) return "real_venue";
 
   // Food/recipe

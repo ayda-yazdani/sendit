@@ -9,7 +9,6 @@ from app.schemas.instagram import (
     InstagramReelScrapeResponse,
 )
 from app.services.social_scrape import (
-    DEFAULT_SCRAPE_USER_AGENT,
     MetadataHTMLParser,
     collect_thumbnail_urls,
     extract_open_graph,
@@ -39,7 +38,7 @@ class InstagramReelScraperService:
                 str(payload.url),
                 follow_redirects=True,
                 headers={
-                    "User-Agent": DEFAULT_SCRAPE_USER_AGENT,
+                    "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
                     "Accept-Language": "en-US,en;q=0.9",
                 },
             )

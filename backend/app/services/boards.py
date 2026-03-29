@@ -1018,7 +1018,7 @@ class BoardsService:
 
         if re.search(r"ticket|book now|get tickets|event|tonight|this saturday|this friday|doors open|live show|festival|gig|concert|sold out|rsvp|free entry|guest list|lineup|performing", text, re.I):
             return "real_event"
-        if re.search(r"restaurant|bar |cafe|café|club|rooftop|pub|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner", text, re.I):
+        if re.search(r"restaurant|\bbar\b|cafe|café|\bclub\b|rooftop|\bpub\b|venue|lounge|bistro|brewery|winery|speakeasy|cocktail bar|brunch spot|izakaya|trattoria|taqueria|diner", text, re.I):
             return "real_venue"
         if re.search(r"best spots|hidden gem|must visit|where to eat|where to go|food spot|date night spot|new opening|place to be", text, re.I):
             return "real_venue"
