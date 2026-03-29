@@ -17,7 +17,7 @@ Small FastAPI service that proxies authentication to Supabase Auth.
 2. Copy `.env.example` to `.env`.
 3. Fill in:
    - `SUPABASE_URL`
-   - `SUPABASE_PUBLISHABLE_KEY` or your legacy anon key
+   - `SUPABASE_PUBLISHABLE_KEY` or your legacy anon key.
 
 ## Run
 
