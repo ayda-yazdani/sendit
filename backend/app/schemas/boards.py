@@ -23,6 +23,12 @@ class BoardResponse(BaseModel):
     created_at: datetime
 
 
+class BoardUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str
+
+
 class BoardListResponse(BaseModel):
     boards: list[BoardResponse] = Field(default_factory=list)
     total: int = 0

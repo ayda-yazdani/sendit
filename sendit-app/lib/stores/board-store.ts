@@ -3,6 +3,8 @@ import { create } from "zustand";
 import {
   createBoard as createBoardRequest,
   joinBoard as joinBoardRequest,
+  updateBoard as updateBoardRequest,
+  deleteBoard as deleteBoardRequest,
   listBoardMembers,
   listBoards,
 } from "@/lib/api/boards";
@@ -18,6 +20,8 @@ interface BoardState {
   fetchBoards: () => Promise<void>;
   createBoard: (name: string, displayName: string) => Promise<Board>;
   joinBoard: (code: string, displayName: string) => Promise<Board>;
+  renameBoard: (boardId: string, name: string) => Promise<Board>;
+  removeBoard: (boardId: string) => Promise<void>;
   setActiveBoard: (board: Board) => void;
   fetchBoardMembers: (boardId: string) => Promise<void>;
 }
@@ -78,6 +82,40 @@ export const useBoardStore = create<BoardState>()((set) => ({
         isLoading: false,
       }));
       return board;
+    } catch (error) {
+      const message = (error as Error).message;
+      set({ isLoading: false, error: message });
+      throw error;
+    }
+  },
+
+  renameBoard: async (boardId: string, name: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const board = await updateBoardRequest(requireSession(), boardId, name);
+      set((state) => ({
+        boards: state.boards.map((item) => (item.id === board.id ? board : item)),
+        activeBoard: state.activeBoard?.id === board.id ? board : state.activeBoard,
+        isLoading: false,
+      }));
+      return board;
+    } catch (error) {
+      const message = (error as Error).message;
+      set({ isLoading: false, error: message });
+      throw error;
+    }
+  },
+
+  removeBoard: async (boardId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await deleteBoardRequest(requireSession(), boardId);
+      set((state) => ({
+        boards: state.boards.filter((item) => item.id !== boardId),
+        activeBoard: state.activeBoard?.id === boardId ? null : state.activeBoard,
+        activeBoardMembers: state.activeBoard?.id === boardId ? [] : state.activeBoardMembers,
+        isLoading: false,
+      }));
     } catch (error) {
       const message = (error as Error).message;
       set({ isLoading: false, error: message });

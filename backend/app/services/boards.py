@@ -14,6 +14,7 @@ from app.schemas.boards import (
     ReelResponse,
     ReelsListResponse,
     BoardCreateRequest,
+    BoardUpdateRequest,
     BoardResponse,
     BoardListResponse,
     MemberCreateRequest,
@@ -449,6 +450,25 @@ class BoardsService:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not join board.",
+            )
+
+        return await self.get_board(board_id)
+
+    async def update_board(self, board_id: str, payload: BoardUpdateRequest) -> BoardResponse:
+        """Rename a board."""
+        await self._verify_board_exists(board_id)
+
+        response = await self._http_client.patch(
+            f"{self._supabase_url}/rest/v1/boards",
+            params={"id": f"eq.{board_id}"},
+            json={"name": payload.name},
+            headers={**self._headers, "Prefer": "return=minimal"},
+        )
+
+        if response.status_code >= status.HTTP_400_BAD_REQUEST:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not update board.",
             )
 
         return await self.get_board(board_id)
@@ -935,10 +955,24 @@ class BoardsService:
 
         try:
             scrape_result = await scraper_service.scrape(MediaScrapeRequest(url=reel_url))
+            preview_image_urls = [str(url) for url in (scrape_result.preview_image_urls or []) if url]
+            frame_image_url = None
+            if scrape_result.frames:
+                for frame in scrape_result.frames:
+                    if frame.image_url:
+                        frame_image_url = str(frame.image_url)
+                        break
+
+            thumbnail_url = frame_image_url or (preview_image_urls[0] if preview_image_urls else None)
+            if thumbnail_url is None and scrape_result.cover_image_url:
+                thumbnail_url = str(scrape_result.cover_image_url)
+
             extraction_data = {
                 "title": scrape_result.title,
                 "description": scrape_result.description,
-                "thumbnail_url": str(scrape_result.cover_image_url) if scrape_result.cover_image_url else None,
+                "thumbnail_url": thumbnail_url,
+                "preview_image_urls": preview_image_urls,
+                "frame_image_url": frame_image_url,
                 "video_url": str(scrape_result.video_url) if scrape_result.video_url else None,
                 "creator": scrape_result.user.username if scrape_result.user else None,
                 "duration": scrape_result.duration,

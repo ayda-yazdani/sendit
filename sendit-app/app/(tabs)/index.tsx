@@ -34,41 +34,61 @@ function getCoverForBoard(boardId: string): string {
   return DEFAULT_COVERS[Math.abs(hash) % DEFAULT_COVERS.length];
 }
 
-function BoardCard({ board, onPress }: { board: Board; onPress: () => void }) {
+function BoardCard({
+  board,
+  onPress,
+  onManage,
+}: {
+  board: Board;
+  onPress: () => void;
+  onManage: () => void;
+}) {
   return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={onPress}
-    >
-      <Image
-        source={{ uri: getCoverForBoard(board.id) }}
-        style={styles.cardImage}
-        resizeMode="cover"
-      />
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {board.name}
-        </Text>
-        <View style={styles.cardMeta}>
-          <Text style={styles.cardCode}>
-            <FontAwesome name="key" size={11} color={theme.colors.textMuted} />
-            {"  "}{board.join_code}
+    <View style={styles.cardWrapper}>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        onPress={onPress}
+      >
+        <Image
+          source={{ uri: getCoverForBoard(board.id) }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {board.name}
           </Text>
+          <View style={styles.cardMeta}>
+            <Text style={styles.cardCode}>
+              <FontAwesome name="key" size={11} color={theme.colors.textMuted} />
+              {"  "}{board.join_code}
+            </Text>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+      <Pressable style={styles.cardAction} onPress={onManage}>
+        <FontAwesome name="ellipsis-h" size={16} color={theme.colors.text} />
+      </Pressable>
+    </View>
   );
 }
 
 export default function BoardListScreen() {
   const { session } = useAuthStore();
-  const { boards, isLoading, fetchBoards } = useBoardStore();
+  const { boards, isLoading, fetchBoards, renameBoard, removeBoard } = useBoardStore();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [createdBoard, setCreatedBoard] = useState<Board | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [manageBoard, setManageBoard] = useState<Board | null>(null);
+  const [showManage, setShowManage] = useState(false);
+  const [showRename, setShowRename] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => { if (session) fetchBoards(); }, [session]);
 
@@ -93,6 +113,39 @@ export default function BoardListScreen() {
       router.push(`/board/${board.id}`);
     } catch {} finally {
       setIsJoining(false);
+    }
+  };
+
+  const openManage = (board: Board) => {
+    setManageBoard(board);
+    setRenameValue(board.name);
+    setShowManage(true);
+  };
+
+  const handleRename = async () => {
+    if (!manageBoard) return;
+    const nextName = renameValue.trim();
+    if (!nextName) return;
+    setIsRenaming(true);
+    try {
+      await renameBoard(manageBoard.id, nextName);
+      setShowRename(false);
+      setShowManage(false);
+    } catch {} finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!manageBoard) return;
+    setIsDeleting(true);
+    try {
+      await removeBoard(manageBoard.id);
+      setShowDelete(false);
+      setShowManage(false);
+      setManageBoard(null);
+    } catch {} finally {
+      setIsDeleting(false);
     }
   };
 
@@ -154,7 +207,11 @@ export default function BoardListScreen() {
             />
           }
           renderItem={({ item }) => (
-            <BoardCard board={item} onPress={() => navigateToBoard(item)} />
+            <BoardCard
+              board={item}
+              onPress={() => navigateToBoard(item)}
+              onManage={() => openManage(item)}
+            />
           )}
         />
       )}
@@ -219,6 +276,89 @@ export default function BoardListScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Manage Board Modal */}
+      <Modal visible={showManage} animationType="slide" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Manage Board</Text>
+            <Pressable
+              style={styles.manageButton}
+              onPress={() => { setShowManage(false); setShowRename(true); }}
+            >
+              <Text style={styles.manageText}>Rename Board</Text>
+            </Pressable>
+            <Pressable
+              style={styles.manageButton}
+              onPress={() => { setShowManage(false); setShowDelete(true); }}
+            >
+              <Text style={[styles.manageText, styles.manageDangerText]}>Delete Board</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowManage(false)} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rename Board Modal */}
+      <Modal visible={showRename} animationType="slide" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Rename Board</Text>
+            <Input
+              label="Board Name"
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="e.g. Weekend Crew"
+              maxLength={40}
+              autoFocus
+            />
+            <Pressable
+              style={[
+                styles.joinButton,
+                (!renameValue.trim() || isRenaming) && styles.joinButtonDisabled,
+              ]}
+              onPress={handleRename}
+              disabled={!renameValue.trim() || isRenaming}
+            >
+              <Text style={styles.joinButtonText}>
+                {isRenaming ? "Saving..." : "Save Name"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setShowRename(false)} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Board Modal */}
+      <Modal visible={showDelete} animationType="slide" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Delete Board?</Text>
+            <Text style={styles.deleteHint}>
+              This removes the board and all its reels for everyone.
+            </Text>
+            <Pressable
+              style={[styles.deleteButton, isDeleting && styles.joinButtonDisabled]}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              <Text style={styles.deleteButtonText}>
+                {isDeleting ? "Deleting..." : "Delete Board"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setShowDelete(false)} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -275,16 +415,32 @@ const styles = StyleSheet.create({
   },
 
   // Card (news-tab style)
+  cardWrapper: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    position: "relative",
+  },
   card: {
     backgroundColor: "#1a1a1a",
     borderRadius: 16,
-    marginBottom: 16,
     overflow: "hidden",
-    marginHorizontal: 16,
   },
   cardPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
+  },
+  cardAction: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
   cardImage: {
     width: "100%",
@@ -410,6 +566,45 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   joinButtonText: {
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bold,
+    fontSize: 16,
+  },
+  manageButton: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  manageText: {
+    fontSize: 15,
+    fontFamily: theme.fonts.semibold,
+    color: theme.colors.text,
+  },
+  manageDangerText: {
+    color: theme.colors.error,
+  },
+  deleteHint: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.regular,
+    marginBottom: 16,
+  },
+  deleteButton: {
+    backgroundColor: theme.colors.error,
+    paddingVertical: 16,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    marginTop: 4,
+    shadowColor: theme.colors.error,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  deleteButtonText: {
     color: theme.colors.text,
     fontFamily: theme.fonts.bold,
     fontSize: 16,

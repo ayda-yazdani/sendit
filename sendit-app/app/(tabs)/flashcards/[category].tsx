@@ -6,6 +6,7 @@ import {
   Dimensions,
   Image,
   ScrollView,
+  RefreshControl,
   Pressable,
   ActivityIndicator,
   Animated,
@@ -17,6 +18,7 @@ import { generateSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
 import { listBoardMembers, listBoardReels } from "@/lib/api/boards";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { theme } from "@/constants/Theme";
+import { markReelReacted, unmarkReelReacted } from "@/lib/utils/reel-reactions";
 
 // Decode HTML entities in URLs and text from extraction
 function decodeHtml(text: string | null | undefined): string {
@@ -32,8 +34,24 @@ function decodeHtml(text: string | null | undefined): string {
     .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+function pickPreviewImage(data: any) {
+  const frame = typeof data?.frame_image_url === "string" ? data.frame_image_url : "";
+  if (frame) return decodeHtml(frame);
+
+  const previewImages = Array.isArray(data?.preview_image_urls) ? data.preview_image_urls : [];
+  const previewUrl = previewImages.find(
+    (item: unknown) => typeof item === "string" && item.trim().length > 0
+  ) as string | undefined;
+  if (previewUrl) return decodeHtml(previewUrl);
+
+  const thumb = typeof data?.thumbnail_url === "string" ? data.thumbnail_url : "";
+  return decodeHtml(thumb);
+}
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
+const CARD_HEIGHT = Math.max(420, Math.round(SCREEN_HEIGHT * 0.6));
+const CARD_IMAGE_HEIGHT = Math.round(CARD_HEIGHT * 0.55);
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -70,36 +88,57 @@ interface SwipedReel {
 }
 
 export default function FlashcardScreen() {
-  const { category, boardId } = useLocalSearchParams<{ category: string; boardId: string }>();
+  const { category: rawCategory, boardId: rawBoardId } = useLocalSearchParams<{ category?: string | string[]; boardId?: string | string[] }>();
+  const category = Array.isArray(rawCategory) ? rawCategory[0] : rawCategory;
+  const boardId = Array.isArray(rawBoardId) ? rawBoardId[0] : rawBoardId;
   const session = useAuthStore((state) => state.session);
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipedReels, setSwipedReels] = useState<SwipedReel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
 
-  useEffect(() => {
+  const loadData = useCallback(async (showLoading: boolean) => {
     if (!boardId || !category) return;
-    const load = async () => {
+    if (showLoading) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+
+    try {
       if (session) {
         const members = await listBoardMembers(session, boardId);
         const currentMember = members.find((member) => member.device_id === session.user.id);
         if (currentMember) {
           const data = await listBoardReels(session, boardId, currentMember.id);
-        const filtered = data.filter(
-          (r: Reel) => (r.classification || "uncategorised") === category
-        );
-        setReels(filtered);
-      }
+          const filtered = data.filter(
+            (r: Reel) => (r.classification || "uncategorised") === category
+          );
+          setReels(filtered);
+        }
       }
 
       const generatedSuggestion = await generateSuggestion(boardId, category);
       if (generatedSuggestion.data) setSuggestion(generatedSuggestion.data);
-      setIsLoading(false);
-    };
-    load();
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
+    }
   }, [boardId, category, session]);
+
+  useEffect(() => {
+    void loadData(true);
+  }, [loadData]);
+
+  const handleRefresh = useCallback(() => {
+    void loadData(false);
+  }, [loadData]);
 
   // Trigger suggestion generation once the user has liked at least 1 reel
   useEffect(() => {
@@ -124,18 +163,29 @@ export default function FlashcardScreen() {
     const reel = reels[currentIndex];
     setSwipedReels((prev) => [...prev, { reel, direction }]);
     setCurrentIndex((prev) => prev + 1);
+    if (boardId) {
+      void markReelReacted(boardId, reel.id);
+    }
   }, [currentIndex, reels, boardId]);
 
   const handleSkip = useCallback(() => {
-    if (currentIndex >= reels.length) return;
-    setCurrentIndex((prev) => prev + 1);
-  }, [currentIndex, reels.length]);
+    handleSwipe("left");
+  }, [handleSwipe]);
 
   const handleUndo = useCallback(() => {
     if (currentIndex <= 0) return;
+    const lastSwiped = swipedReels[swipedReels.length - 1];
+    if (boardId && lastSwiped) {
+      void unmarkReelReacted(boardId, lastSwiped.reel.id);
+    }
     setCurrentIndex((prev) => prev - 1);
     setSwipedReels((prev) => prev.slice(0, -1));
-  }, [currentIndex]);
+  }, [currentIndex, swipedReels, boardId]);
+
+  const handleRestart = useCallback(() => {
+    setCurrentIndex(0);
+    setSwipedReels([]);
+  }, []);
 
   const likedReels = useMemo(
     () => swipedReels.filter((s) => s.direction === "right"),
@@ -157,7 +207,7 @@ export default function FlashcardScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.push(`/board/${boardId}`)} style={styles.backButton}>
           <FontAwesome name="chevron-left" size={16} color={theme.colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
@@ -170,90 +220,105 @@ export default function FlashcardScreen() {
         <View style={[styles.dot, { backgroundColor: accent }]} />
       </View>
 
-      {/* TOP: Single flashcard */}
-      <View style={styles.topSection}>
-        {!allSwiped && currentReel ? (
-          <SwipeableCard
-            key={currentReel.id}
-            reel={currentReel}
-            accent={accent}
-            onSwipe={handleSwipe}
+      <ScrollView
+        style={styles.screenScroll}
+        contentContainerStyle={styles.screenContent}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={accent}
           />
-        ) : (
-          <View style={styles.doneContainer}>
-            <Text style={styles.doneEmoji}>✨</Text>
-            <Text style={styles.doneTitle}>All caught up</Text>
-            <Text style={styles.doneSubtitle}>
-              You liked {likedReels.length} of {reels.length}
-            </Text>
-          </View>
-        )}
-
-        {/* Action row */}
-        {!allSwiped && (
-          <View style={styles.actions}>
-            <View style={styles.swipeLabel}>
-              <FontAwesome name="arrow-left" size={10} color="#555" />
-              <Text style={styles.swipeLabelText}>Nah</Text>
-            </View>
-
-            <View style={styles.actionButtons}>
-              {currentIndex > 0 && (
-                <Pressable style={styles.undoButton} onPress={handleUndo}>
-                  <FontAwesome name="undo" size={14} color="#888" />
+        }
+      >
+        {/* TOP: Single flashcard */}
+        <View style={styles.topSection}>
+          {!allSwiped && currentReel ? (
+            <SwipeableCard
+              key={currentReel.id}
+              reel={currentReel}
+              accent={accent}
+              onSwipe={handleSwipe}
+            />
+          ) : (
+            <View style={styles.doneContainer}>
+              <Text style={styles.doneEmoji}>✨</Text>
+              <Text style={styles.doneTitle}>All caught up</Text>
+              <Text style={styles.doneSubtitle}>
+                You liked {likedReels.length} of {reels.length}
+              </Text>
+              {reels.length > 0 && (
+                <Pressable style={[styles.restartButton, { borderColor: accent }]} onPress={handleRestart}>
+                  <Text style={[styles.restartButtonText, { color: accent }]}>Do them again</Text>
                 </Pressable>
               )}
-              <Pressable style={styles.skipButton} onPress={handleSkip}>
-                <FontAwesome name="forward" size={14} color="#666" />
-              </Pressable>
             </View>
+          )}
 
-            <View style={styles.swipeLabel}>
-              <Text style={[styles.swipeLabelText, { color: accent }]}>Like</Text>
-              <FontAwesome name="arrow-right" size={10} color={accent} />
+          {/* Action row */}
+          {!allSwiped && (
+            <View style={styles.actions}>
+              <View style={styles.swipeLabel}>
+                <FontAwesome name="arrow-left" size={10} color="#555" />
+                <Text style={styles.swipeLabelText}>Nah</Text>
+              </View>
+
+              <View style={styles.actionButtons}>
+                {currentIndex > 0 && (
+                  <Pressable style={styles.undoButton} onPress={handleUndo}>
+                    <FontAwesome name="undo" size={14} color="#888" />
+                  </Pressable>
+                )}
+                <Pressable style={styles.skipButton} onPress={handleSkip}>
+                  <FontAwesome name="forward" size={14} color="#666" />
+                </Pressable>
+              </View>
+
+              <View style={styles.swipeLabel}>
+                <Text style={[styles.swipeLabelText, { color: accent }]}>Like</Text>
+                <FontAwesome name="arrow-right" size={10} color={accent} />
+              </View>
             </View>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
 
-      {/* BOTTOM: Scrollable recommendation feed */}
-      <View style={styles.feedDivider} />
-      <ScrollView
-        style={styles.feedScroll}
-        contentContainerStyle={styles.feedContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.feedSectionTitle}>Recommended for you</Text>
+        {/* BOTTOM: Recommendation feed */}
+        <View style={styles.feedDivider} />
+        <View style={styles.feedContent}>
+          <Text style={styles.feedSectionTitle}>Recommended for you</Text>
 
-        {/* AI-generated plan suggestion */}
-        {suggestion ? (
-          <MiniSuggestion suggestion={suggestion} accent={accent} />
-        ) : (
-          <View style={styles.suggestionEmpty}>
-            {isGeneratingSuggestion && (
-              <ActivityIndicator size="small" color={accent} style={{ marginBottom: 8 }} />
-            )}
-            <Text style={styles.suggestionEmptyText}>
-              {isGeneratingSuggestion
-                ? "Generating personalised suggestions..."
-                : likedReels.length > 0
+          {/* AI-generated plan suggestion */}
+          {suggestion ? (
+            <MiniSuggestion suggestion={suggestion} accent={accent} />
+          ) : (
+            <View style={styles.suggestionEmpty}>
+              {isGeneratingSuggestion && (
+                <ActivityIndicator size="small" color={accent} style={{ marginBottom: 8 }} />
+              )}
+              <Text style={styles.suggestionEmptyText}>
+                {isGeneratingSuggestion
                   ? "Generating personalised suggestions..."
-                  : "Swipe to unlock activity suggestions"}
-            </Text>
-          </View>
-        )}
+                  : likedReels.length > 0
+                    ? "Generating personalised suggestions..."
+                    : "Swipe to unlock activity suggestions"}
+              </Text>
+            </View>
+          )}
 
-        {/* Liked reels as preference signal */}
-        {likedReels.length > 0 && (
-          <>
-            <Text style={[styles.feedSectionTitle, { marginTop: 16 }]}>You're into</Text>
-            {likedReels.map(({ reel }, i) => (
-              <FeedItem key={`${reel.id}-${i}`} reel={reel} accent={accent} />
-            ))}
-          </>
-        )}
+          {/* Liked reels as preference signal */}
+          {likedReels.length > 0 && (
+            <>
+              <Text style={[styles.feedSectionTitle, { marginTop: 16 }]}>You're into</Text>
+              {likedReels.map(({ reel }, i) => (
+                <FeedItem key={`${reel.id}-${i}`} reel={reel} accent={accent} />
+              ))}
+            </>
+          )}
 
-        <View style={{ height: 30 }} />
+          <View style={{ height: 30 }} />
+        </View>
       </ScrollView>
     </View>
   );
@@ -265,7 +330,9 @@ function SwipeableCard({ reel, accent, onSwipe }: { reel: Reel; accent: string; 
 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8,
+    onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 8,
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dx > SWIPE_THRESHOLD) {
@@ -294,7 +361,7 @@ function SwipeableCard({ reel, accent, onSwipe }: { reel: Reel; accent: string; 
 
   const data = reel.extraction_data || {};
   const title = decodeHtml(data.title) || "Untitled";
-  const thumbnailUrl = decodeHtml(data.thumbnail_url);
+  const thumbnailUrl = pickPreviewImage(data);
   const creator = data.creator || data.platform_metadata?.username;
   const venue = data.venue_name;
   const price = data.price;
@@ -311,9 +378,7 @@ function SwipeableCard({ reel, accent, onSwipe }: { reel: Reel; accent: string; 
         {thumbnailUrl ? (
           <Image source={{ uri: thumbnailUrl }} style={styles.cardImage} resizeMode="cover" />
         ) : (
-          <View style={[styles.cardImage, { backgroundColor: accent + "20" }]}>
-            <FontAwesome name="play-circle" size={36} color={accent} />
-          </View>
+          <View style={[styles.cardImage, { backgroundColor: accent + "20" }]} />
         )}
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>
@@ -371,7 +436,7 @@ function MiniSuggestion({ suggestion, accent }: { suggestion: Suggestion; accent
 
 function FeedItem({ reel, accent }: { reel: Reel; accent: string }) {
   const data = reel.extraction_data || {};
-  const thumb = decodeHtml(data.thumbnail_url);
+  const thumb = pickPreviewImage(data);
   const title = decodeHtml(data.title) || "Untitled";
   // Clean title: remove "on Instagram:" prefix patterns
   const cleanTitle = title.replace(/^.{1,30} on Instagram: "?/i, "").replace(/"$/, "");
@@ -409,11 +474,14 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
 
   // Top section
-  topSection: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
+  screenScroll: { flex: 1 },
+  screenContent: { paddingBottom: 16 },
+  topSection: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
 
   // Single card
   card: {
     width: CARD_WIDTH,
+    minHeight: CARD_HEIGHT,
     backgroundColor: "#1a1a1a",
     borderRadius: 16,
     overflow: "hidden",
@@ -424,22 +492,22 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   cardImage: {
-    width: "100%", height: 130,
+    width: "100%", height: CARD_IMAGE_HEIGHT,
     backgroundColor: "#2a2a2a",
     alignItems: "center", justifyContent: "center",
   },
   cardBody: { padding: 12 },
-  cardTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  cardTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   platformBadge: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, gap: 4,
   },
   platformText: { fontSize: 11, fontFamily: theme.fonts.semibold, textTransform: "capitalize" },
   creator: { fontSize: 11, fontFamily: theme.fonts.regular, color: "#777", marginLeft: 8, flex: 1 },
-  cardTitle: { fontSize: 15, fontFamily: theme.fonts.bold, color: theme.colors.text, lineHeight: 20 },
-  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  cardTitle: { fontSize: 15, fontFamily: theme.fonts.bold, color: theme.colors.text, lineHeight: 18 },
+  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaText: { fontSize: 11, fontFamily: theme.fonts.regular, color: "#999" },
+  metaText: { fontSize: 10, fontFamily: theme.fonts.regular, color: "#999" },
 
   // Actions
   actions: {
@@ -465,10 +533,18 @@ const styles = StyleSheet.create({
   doneEmoji: { fontSize: 32, marginBottom: 8 },
   doneTitle: { fontSize: 20, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 4 },
   doneSubtitle: { fontSize: 13, fontFamily: theme.fonts.regular, color: "#888" },
+  restartButton: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  restartButtonText: { fontSize: 13, fontFamily: theme.fonts.semibold },
 
   // Feed
-  feedDivider: { height: 0.5, backgroundColor: "rgba(255,255,255,0.08)", marginHorizontal: 16, marginTop: 4 },
-  feedScroll: { flex: 1 },
+  feedDivider: { height: 0.5, backgroundColor: "rgba(255,255,255,0.08)", marginHorizontal: 16, marginTop: 8 },
   feedContent: { padding: 16, paddingTop: 12 },
   feedSectionTitle: { fontSize: 14, fontFamily: theme.fonts.bold, color: theme.colors.text, marginBottom: 10 },
 

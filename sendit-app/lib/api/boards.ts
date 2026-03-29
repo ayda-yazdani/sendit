@@ -47,6 +47,32 @@ export async function joinBoard(
   );
 }
 
+export async function updateBoard(
+  session: PersistedAuthSession,
+  boardId: string,
+  name: string
+) {
+  return apiRequest<Board>(
+    `/api/v1/boards/${boardId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    },
+    session
+  );
+}
+
+export async function deleteBoard(
+  session: PersistedAuthSession,
+  boardId: string
+) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/api/v1/boards/${boardId}`,
+    { method: "DELETE" },
+    session
+  );
+}
+
 export async function listBoardMembers(
   session: PersistedAuthSession,
   boardId: string

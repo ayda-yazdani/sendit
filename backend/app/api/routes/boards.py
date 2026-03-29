@@ -13,6 +13,7 @@ from app.schemas.boards import (
     ReelDeleteResponse,
     ReelsListResponse,
     BoardCreateRequest,
+    BoardUpdateRequest,
     BoardResponse,
     BoardListResponse,
     BoardJoinRequest,
@@ -94,6 +95,26 @@ async def get_board(
     - Authentication: Bearer token in Authorization header
     """
     return await service.get_board(board_id=board_id)
+
+
+@router.patch(
+    "/{board_id}",
+    response_model=BoardResponse,
+)
+async def update_board(
+    board_id: str,
+    payload: BoardUpdateRequest,
+    _: SupabaseUser = Depends(get_verified_user),
+    service: BoardsService = Depends(get_boards_service),
+) -> BoardResponse:
+    """
+    Rename a board.
+    
+    Requires:
+    - Authentication: Bearer token in Authorization header
+    - Body: BoardUpdateRequest with name
+    """
+    return await service.update_board(board_id=board_id, payload=payload)
 
 
 @router.post(

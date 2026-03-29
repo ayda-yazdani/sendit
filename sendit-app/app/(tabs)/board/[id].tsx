@@ -7,18 +7,22 @@ import {
   Share,
   KeyboardAvoidingView,
   Platform,
+  LayoutChangeEvent,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import * as Clipboard from "expo-clipboard";
+import { useFocusEffect } from "@react-navigation/native";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useBoardStore } from "@/lib/stores/board-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRealtime } from "@/lib/hooks/use-realtime";
 import { UrlInput } from "@/components/board/UrlInput";
+import { JoinCodeDisplay } from "@/components/board/JoinCodeDisplay";
 import { BlobGraphView } from "@/components/board/BlobGraphView";
 import { useTasteStore } from "@/lib/stores/taste-store";
 import { theme } from "@/constants/Theme";
 import { listBoardReels } from "@/lib/api/boards";
+import { loadReactedReelIds } from "@/lib/utils/reel-reactions";
 
 interface Reel {
   id: string;
@@ -30,12 +34,22 @@ interface Reel {
 }
 
 export default function BoardDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const { activeBoard, activeBoardMembers, fetchBoardMembers, setActiveBoard } = useBoardStore();
   const { session } = useAuthStore();
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
+  const [graphSize, setGraphSize] = useState<{ width: number; height: number } | null>(null);
+  const [reactedReelIds, setReactedReelIds] = useState<Set<string> | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
   const { fetchProfile } = useTasteStore();
+
+  const refreshReactedReels = useCallback(async () => {
+    if (!id) return;
+    const reelIds = await loadReactedReelIds(id);
+    setReactedReelIds(reelIds);
+  }, [id]);
 
   // Load board if navigated directly
   useEffect(() => {
@@ -64,6 +78,16 @@ export default function BoardDetailScreen() {
     load();
   }, [id, session, fetchBoardMembers, fetchProfile]);
 
+  useEffect(() => {
+    void refreshReactedReels();
+  }, [refreshReactedReels]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshReactedReels();
+    }, [refreshReactedReels])
+  );
+
   // Real-time reel updates
   useRealtime({
     table: "reels",
@@ -91,10 +115,9 @@ export default function BoardDetailScreen() {
     });
   };
 
-  const handleCopyCode = async () => {
+  const handleShowInvite = () => {
     if (!activeBoard) return;
-    await Clipboard.setStringAsync(activeBoard.join_code);
-    // Visual feedback handled by UI
+    setShowInvite(true);
   };
 
   const handleBlobPress = useCallback((category: string, _categoryReels: Reel[]) => {
@@ -103,6 +126,13 @@ export default function BoardDetailScreen() {
       params: { category, boardId: id },
     });
   }, [id]);
+
+  const handleGraphLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (!graphSize || graphSize.width !== width || graphSize.height !== height) {
+      setGraphSize({ width, height });
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -127,18 +157,24 @@ export default function BoardDetailScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          <Pressable onPress={handleCopyCode} style={styles.headerIconButton}>
+          <Pressable onPress={handleShareInvite} style={styles.headerIconButton}>
             <FontAwesome name="link" size={15} color={theme.colors.text} />
           </Pressable>
-          <Pressable onPress={handleShareInvite} style={styles.headerIconButton}>
+          <Pressable onPress={handleShowInvite} style={styles.headerIconButton}>
             <FontAwesome name="user-plus" size={14} color={theme.colors.text} />
           </Pressable>
         </View>
       </View>
 
       {/* Blob Graph View */}
-      <View style={styles.blobContainer}>
-        <BlobGraphView reels={reels} onBlobPress={handleBlobPress} />
+      <View style={styles.blobContainer} onLayout={handleGraphLayout}>
+        <BlobGraphView
+          reels={reels}
+          onBlobPress={handleBlobPress}
+          width={graphSize?.width}
+          height={graphSize?.height}
+          reactedReelIds={reactedReelIds}
+        />
       </View>
 
       {/* URL Input — glowing, pinned to bottom */}
@@ -151,6 +187,20 @@ export default function BoardDetailScreen() {
           />
         </View>
       )}
+
+      <Modal visible={showInvite} animationType="slide" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            {activeBoard && (
+              <JoinCodeDisplay
+                board={activeBoard}
+                onDone={() => setShowInvite(false)}
+                variant="invite"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -213,5 +263,18 @@ const styles = StyleSheet.create({
 
   // URL Input container
   urlInputContainer: {
+  },
+
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  sheet: {
+    backgroundColor: theme.colors.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
   },
 });
