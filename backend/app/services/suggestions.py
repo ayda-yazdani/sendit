@@ -18,7 +18,7 @@ from app.schemas.suggestions import (
 REPO_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    "gemini-2.5-flash:generateContent"
 )
 
 
