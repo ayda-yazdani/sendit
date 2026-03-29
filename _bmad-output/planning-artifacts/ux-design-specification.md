@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 10]
 inputDocuments:
   - "_bmad-output/planning-artifacts/prd.md"
   - "_bmad-output/planning-artifacts/architecture.md"
@@ -354,3 +354,127 @@ The mental model is: "this is my group chat, but it actually does something with
 | Suggestion | Scroll past cards | AI suggestion appears at end of cluster | Contextual — "based on what your group shares about [vibe]" |
 | Commitment | Tap In/Maybe/Out | Vote recorded, tally updates live | Avatar ring colour change, count increment |
 | Return | Re-open app | Blobs may have new cards, sizes shifted | Subtle animation showing what's new |
+
+## User Journey Flows
+
+### Journey 1: First-Time User
+
+```mermaid
+flowchart TD
+    A[Open App] --> B[Auth Screen]
+    B --> C{Sign Up or Log In?}
+    C -->|Sign Up| D[Enter name + email + password]
+    C -->|Log In| E[Enter email + password]
+    D --> F[Personality Survey - 10 screens]
+    F --> G[Tag picker: Hobbies]
+    G --> H[Tag picker: Activities]
+    H --> I[... 8 more screens]
+    I --> J[Survey saved to user metadata]
+    J --> K[Board List - empty state]
+    E --> K
+    K --> L{Create or Join?}
+    L -->|Create| M[Enter board name]
+    M --> N[Board created + join code shown]
+    N --> O[Share code with friends]
+    O --> P[Board Detail - Blob View]
+    L -->|Join| Q[Enter join code + display name]
+    Q --> P
+    P --> R[Empty blob view - waiting for reels]
+```
+
+**Key moments:** Survey should feel playful not tedious. Empty board state should hint at what blobs will become. Join code sharing must be one-tap copy.
+
+### Journey 2: Share a Reel
+
+```mermaid
+flowchart TD
+    A[User on Blob View] --> B[Tap URL input at bottom]
+    B --> C[Paste Instagram/TikTok/YouTube URL]
+    C --> D[Platform auto-detected - icon appears]
+    D --> E[Tap Send]
+    E --> F[Reel created in Supabase]
+    F --> G[FastAPI backend scrapes + classifies via Gemini]
+    G --> H{Classification result}
+    H -->|real_event| I[Card appears in Events blob]
+    H -->|real_venue| J[Card appears in Venues blob]
+    H -->|recipe_food| K[Card appears in Food blob]
+    H -->|vibe_inspiration| L[Card appears in Vibes blob]
+    H -->|humour_identity| M[Card appears in Humour blob]
+    I & J & K & L & M --> N[Blob grows in size]
+    N --> O[Other members see update in real-time]
+```
+
+**Key moments:** URL paste to extraction should feel instant (<3s). Blob absorbing a new card should be visible — the blob subtly grows. Real-time update for other members creates the "alive" feeling.
+
+### Journey 3: Discover & Swipe
+
+```mermaid
+flowchart TD
+    A[User on Blob View] --> B[Tap a blob e.g. Food]
+    B --> C[Blob expand animation]
+    C --> D[Flashcard Screen opens]
+    D --> E[ONE suggestion card displayed]
+    E --> F{Swipe action}
+    F -->|Swipe Right| G[Liked - saved to swipes table]
+    F -->|Swipe Left| H[Disliked - saved to swipes table]
+    F -->|Skip button| I[Skipped - not saved]
+    G --> J[Suggestion appears in feed below as mini card]
+    H --> K[Next card appears]
+    I --> K
+    J --> K
+    K --> L{More cards?}
+    L -->|Yes| E
+    L -->|No| M[Summary: You liked X of Y]
+    M --> N[Full feed of liked suggestions]
+    N --> O[Tap liked suggestion to expand]
+    O --> P[Vote In / Maybe / Out]
+    P --> Q[Commitment saved + tally updates live]
+    R[Undo button] --> S[Go back to previous card]
+    S --> E
+```
+
+**Key moments:** Swipe must feel smooth — card follows finger, bounces back if under threshold. Feed below updates live as you swipe (mini suggestion cards appear). Summary screen shows results and lets you act on liked suggestions. Undo lets you reconsider.
+
+**Feed item structure (mini suggestion card):**
+- Left accent border (category colour)
+- "Suggestion" label
+- What (1-2 lines)
+- Where (venue)
+- Cost per person
+- "Why: 3 of you shared ramen spots"
+
+### Journey 4: Commitment Flow
+
+```mermaid
+flowchart TD
+    A[User sees suggestion] --> B[Tap to expand detail]
+    B --> C[Full suggestion: what/where/when/cost/booking]
+    C --> D[Why section: which reels influenced it]
+    D --> E{Vote}
+    E -->|In| F[Avatar ring turns green]
+    E -->|Maybe| G[Avatar ring turns yellow]
+    E -->|Out| H[Avatar ring stays grey]
+    F & G & H --> I[Live tally updates for all members]
+    I --> J{Majority committed?}
+    J -->|Yes| K[Plan feels inevitable - social momentum]
+    J -->|No| L[Grey circles create gentle pressure]
+    K --> M[Optional: upload receipt/ticket screenshot]
+    M --> N[Receipt wall shows confirmed members]
+```
+
+**Key moments:** Single tap to vote — no confirmation modal. Live tally creates momentum. Grey circles for uncommitted members (not "you haven't responded" — no guilt). Receipt upload is optional proof of commitment.
+
+### Journey Patterns
+
+**Navigation:** Spatial (blob drift) → Focused (flashcard single card) → Detail (suggestion expand). Each level goes deeper, back button always returns one level.
+
+**Feedback:** Every action has immediate visual response — swipe moves card, vote changes avatar colour, reel paste shows platform icon, blob grows when card is absorbed.
+
+**Error recovery:** Undo on flashcards, regenerate on suggestions, archived plans can be revived. Nothing is permanent or punishing.
+
+### Flow Optimisation Principles
+
+1. **Zero to value in 3 taps** — Sign up → survey → create board. No email confirmation, no profile setup, no tutorials.
+2. **One action per screen** — Flashcard screen: swipe. Blob view: explore. Vote screen: tap In/Maybe/Out. Never ask the user to do two things at once.
+3. **Progressive disclosure** — Blob view shows clusters. Tap reveals cards. Tap card reveals detail. Each level adds information without overwhelming.
+4. **Real-time everything** — New reels, blob updates, vote tallies, suggestion changes — all live via Supabase Realtime. The app should feel alive even when you're not interacting.
