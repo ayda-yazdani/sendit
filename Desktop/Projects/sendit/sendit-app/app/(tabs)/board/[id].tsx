@@ -1,19 +1,22 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Share, KeyboardAvoidingView, Platform } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Share,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useBoardStore } from "@/lib/stores/board-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRealtime } from "@/lib/hooks/use-realtime";
-import { MemberList } from "@/components/board/MemberList";
 import { UrlInput } from "@/components/board/UrlInput";
+import { BlobGraphView } from "@/components/board/BlobGraphView";
 import { supabase } from "@/lib/supabase";
-import { ExtractionCard } from "@/components/extraction/ExtractionCard";
-import { SuggestionCard, SuggestionEmpty } from "@/components/suggestion/SuggestionCard";
-import { getActiveSuggestion, Suggestion } from "@/lib/ai/suggestion-engine";
-import { TasteProfileSection } from "@/components/board/TasteProfile";
-import { IdentityCard } from "@/components/board/IdentityCard";
-import { CometCard } from "@/components/board/CometCard";
 import { useTasteStore } from "@/lib/stores/taste-store";
 import { theme } from "@/constants/Theme";
 
@@ -29,13 +32,10 @@ interface Reel {
 export default function BoardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeBoard, activeBoardMembers, fetchBoardMembers, setActiveBoard } = useBoardStore();
-  const { deviceId } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const { session } = useAuthStore();
   const [reels, setReels] = useState<Reel[]>([]);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
-  const { profile: tasteProfile, isLoading: tasteLoading, fetchProfile, regenerateProfile } = useTasteStore();
+  const { fetchProfile } = useTasteStore();
 
   // Load board if navigated directly
   useEffect(() => {
@@ -51,18 +51,16 @@ export default function BoardDetailScreen() {
     const load = async () => {
       await fetchBoardMembers(id);
 
-      // Find current user's member ID
-      if (deviceId) {
+      if (session?.user.id) {
         const { data: member } = await supabase
           .from("members")
           .select("id")
           .eq("board_id", id)
-          .eq("device_id", deviceId)
+          .eq("user_id", session.user.id)
           .single();
         if (member) setCurrentMemberId(member.id);
       }
 
-      // Fetch reels
       const { data: reelData } = await supabase
         .from("reels")
         .select("*")
@@ -70,32 +68,10 @@ export default function BoardDetailScreen() {
         .order("created_at", { ascending: false });
       if (reelData) setReels(reelData);
 
-      // Fetch taste profile
       await fetchProfile(id);
-
-      // Fetch active suggestion
-      const activeSuggestion = await getActiveSuggestion(id);
-      if (activeSuggestion) setSuggestion(activeSuggestion);
-
-      setIsLoading(false);
     };
     load();
-  }, [id, deviceId]);
-
-  // Real-time member updates
-  useRealtime({
-    table: "members",
-    filter: `board_id=eq.${id}`,
-    onInsert: () => fetchBoardMembers(id!),
-    onDelete: () => fetchBoardMembers(id!),
-  });
-
-  // Real-time taste profile updates
-  useRealtime({
-    table: "taste_profiles",
-    filter: `board_id=eq.${id}`,
-    onChange: () => fetchProfile(id!),
-  });
+  }, [id, session]);
 
   // Real-time reel updates
   useRealtime({
@@ -109,152 +85,135 @@ export default function BoardDetailScreen() {
     },
   });
 
-  const handleCopyCode = async () => {
-    if (!activeBoard) return;
-    await Clipboard.setStringAsync(activeBoard.join_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Real-time member updates
+  useRealtime({
+    table: "members",
+    filter: `board_id=eq.${id}`,
+    onInsert: () => fetchBoardMembers(id!),
+    onDelete: () => fetchBoardMembers(id!),
+  });
 
   const handleShareInvite = async () => {
     if (!activeBoard) return;
-    await Share.share({ message: `Join "${activeBoard.name}" on Sendit! Code: ${activeBoard.join_code}` });
+    await Share.share({
+      message: `Join "${activeBoard.name}" on Sendit! Code: ${activeBoard.join_code}`,
+    });
   };
 
+  const handleCopyCode = async () => {
+    if (!activeBoard) return;
+    await Clipboard.setStringAsync(activeBoard.join_code);
+    // Visual feedback handled by UI
+  };
+
+  const handleBlobPress = useCallback((category: string, _categoryReels: Reel[]) => {
+    router.push({
+      pathname: "/flashcards/[category]",
+      params: { category, boardId: id },
+    });
+  }, [id]);
+
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-        {/* Board Header */}
-        <View style={styles.header}>
-          <Text style={styles.boardName}>{activeBoard?.name ?? "Board"}</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <FontAwesome name="chevron-left" size={16} color={theme.colors.text} />
+        </Pressable>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.boardName} numberOfLines={1}>
+            {activeBoard?.name ?? "Board"}
+          </Text>
           <Text style={styles.memberCount}>
             {activeBoardMembers.length} member{activeBoardMembers.length !== 1 ? "s" : ""}
+            {" \u00B7 "}
+            {reels.length} reel{reels.length !== 1 ? "s" : ""}
           </Text>
         </View>
 
-        {/* Join Code */}
-        {activeBoard && (
-          <View style={styles.codeSection}>
-            <View style={styles.codeRow}>
-              <View>
-                <Text style={styles.codeLabel}>Join Code</Text>
-                <Text style={styles.codeValue}>{activeBoard.join_code}</Text>
-              </View>
-              <View style={styles.codeActions}>
-                <Pressable style={styles.codeButton} onPress={handleCopyCode}>
-                  <Text style={styles.codeButtonText}>{copied ? "Copied!" : "Copy"}</Text>
-                </Pressable>
-                <Pressable style={styles.codeButton} onPress={handleShareInvite}>
-                  <Text style={styles.codeButtonText}>Share</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Reels */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reels ({reels.length})</Text>
-          {reels.length === 0 ? (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderIcon}>🎬</Text>
-              <Text style={styles.placeholderText}>No reels yet</Text>
-              <Text style={styles.placeholderHint}>Paste a URL below to share content</Text>
-            </View>
-          ) : (
-            reels.map((reel) => (
-              <ExtractionCard
-                key={reel.id}
-                url={reel.url}
-                platform={reel.platform}
-                classification={reel.classification}
-                extractionData={reel.extraction_data}
-                createdAt={reel.created_at}
-              />
-            ))
-          )}
+        <View style={styles.headerActions}>
+          <Pressable onPress={handleCopyCode} style={styles.headerIconButton}>
+            <FontAwesome name="link" size={15} color={theme.colors.text} />
+          </Pressable>
+          <Pressable onPress={handleShareInvite} style={styles.headerIconButton}>
+            <FontAwesome name="user-plus" size={14} color={theme.colors.text} />
+          </Pressable>
         </View>
+      </View>
 
-        {/* Members */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Members</Text>
-          {isLoading ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} style={{ paddingVertical: 20 }} />
-          ) : (
-            <MemberList members={activeBoardMembers} />
-          )}
-        </View>
+      {/* Blob Graph View */}
+      <BlobGraphView reels={reels} onBlobPress={handleBlobPress} />
 
-        {/* Comet Identity Card */}
-        {tasteProfile?.identity_label && tasteProfile?.profile_data && activeBoard && (
-          <View style={styles.section}>
-            <CometCard
-              boardName={activeBoard.name}
-              identityLabel={tasteProfile.identity_label}
-              profileData={tasteProfile.profile_data}
-              memberCount={activeBoardMembers.length}
-              reelCount={reels.length}
-            />
-          </View>
-        )}
-
-        {/* Suggestion */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Suggestion</Text>
-          {suggestion ? (
-            <SuggestionCard
-              suggestion={suggestion}
-              boardId={id!}
-              onNewSuggestion={(s) => setSuggestion(s)}
-            />
-          ) : (
-            <SuggestionEmpty
-              boardId={id!}
-              hasEnoughReels={reels.length >= 3}
-              onGenerated={(s) => setSuggestion(s)}
-            />
-          )}
-        </View>
-
-        {/* Taste Profile */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Taste Profile</Text>
-          <TasteProfileSection
-            profileData={tasteProfile?.profile_data || null}
-            identityLabel={tasteProfile?.identity_label || null}
-            isLoading={tasteLoading}
-            reelCount={reels.length}
-            onGenerate={() => regenerateProfile(id!)}
-          />
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* URL Input pinned to bottom */}
+      {/* URL Input — glowing, pinned to bottom */}
       {id && currentMemberId && (
-        <UrlInput boardId={id} memberId={currentMemberId} />
+        <View style={styles.urlInputContainer}>
+          <UrlInput boardId={id} memberId={currentMemberId} />
+        </View>
       )}
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.bg },
-  header: { padding: 20, paddingTop: 60 },
-  boardName: { fontSize: 28, fontWeight: "bold", color: theme.colors.text, marginBottom: 4 },
-  memberCount: { fontSize: 14, color: theme.colors.textSecondary },
-  codeSection: { paddingHorizontal: 20, marginBottom: 16 },
-  codeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: theme.colors.bgCard, borderRadius: 12, padding: 16 },
-  codeLabel: { fontSize: 11, color: theme.colors.textMuted, textTransform: "uppercase", marginBottom: 4 },
-  codeValue: { fontSize: 20, fontWeight: "bold", color: theme.colors.warm, letterSpacing: 3 },
-  codeActions: { flexDirection: "row", gap: 8 },
-  codeButton: { backgroundColor: theme.colors.bgCardLight, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.borderLight },
-  codeButtonText: { fontSize: 13, fontWeight: "600", color: theme.colors.primary },
-  section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 12 },
-  placeholder: { alignItems: "center", paddingVertical: 24, backgroundColor: theme.colors.bgCard, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.borderLight },
-  placeholderIcon: { fontSize: 32, marginBottom: 8 },
-  placeholderText: { fontSize: 14, color: theme.colors.textSecondary, fontWeight: "500" },
-  placeholderHint: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 8,
+    backgroundColor: "#000",
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerCenter: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  boardName: {
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+  },
+  memberCount: {
+    fontSize: 12,
+    fontFamily: theme.fonts.regular,
+    color: "#888",
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // URL Input container
+  urlInputContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
 });

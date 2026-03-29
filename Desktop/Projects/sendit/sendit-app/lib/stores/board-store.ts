@@ -14,8 +14,7 @@ export interface Member {
   id: string;
   board_id: string;
   display_name: string;
-  device_id: string;
-  google_id: string | null;
+  user_id: string;
   avatar_url: string | null;
   push_token: string | null;
 }
@@ -33,6 +32,17 @@ interface BoardState {
   fetchBoardMembers: (boardId: string) => Promise<void>;
 }
 
+function getUserId(): string {
+  const session = useAuthStore.getState().session;
+  if (!session) throw new Error("Not authenticated");
+  return session.user.id;
+}
+
+function getDisplayName(): string {
+  const session = useAuthStore.getState().session;
+  return session?.user.user_metadata?.display_name || "User";
+}
+
 export const useBoardStore = create<BoardState>()((set, get) => ({
   boards: [],
   activeBoard: null,
@@ -41,14 +51,13 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   error: null,
 
   fetchBoards: async () => {
-    const { deviceId } = useAuthStore.getState();
-    if (!deviceId) return;
+    const userId = getUserId();
     set({ isLoading: true, error: null });
 
     const { data: memberRows, error: memberError } = await supabase
       .from("members")
       .select("board_id")
-      .eq("device_id", deviceId);
+      .eq("user_id", userId);
 
     if (memberError || !memberRows?.length) {
       set({ boards: [], isLoading: false });
@@ -71,8 +80,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
   createBoard: async (name: string, displayName: string): Promise<Board> => {
     set({ isLoading: true, error: null });
-    const { deviceId, googleId } = useAuthStore.getState();
-    if (!deviceId) throw new Error("Device not initialized");
+    const userId = getUserId();
 
     let board: Board | null = null;
     let attempts = 0;
@@ -101,9 +109,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
     const { error: memberError } = await supabase.from("members").insert({
       board_id: board.id,
-      display_name: displayName.trim() || "Board Creator",
-      device_id: deviceId,
-      google_id: googleId,
+      display_name: displayName.trim() || getDisplayName(),
+      user_id: userId,
     });
 
     if (memberError) {
@@ -118,8 +125,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
   joinBoard: async (code: string, displayName: string): Promise<Board> => {
     set({ isLoading: true, error: null });
-    const { deviceId, googleId } = useAuthStore.getState();
-    if (!deviceId) throw new Error("Device not initialized");
+    const userId = getUserId();
 
     const { data: board, error: boardError } = await supabase
       .from("boards")
@@ -134,9 +140,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
 
     const { error: memberError } = await supabase.from("members").insert({
       board_id: board.id,
-      display_name: displayName.trim() || "New Member",
-      device_id: deviceId,
-      google_id: googleId,
+      display_name: displayName.trim() || getDisplayName(),
+      user_id: userId,
     });
 
     if (memberError) {

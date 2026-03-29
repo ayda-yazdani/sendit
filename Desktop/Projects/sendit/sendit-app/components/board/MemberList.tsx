@@ -33,7 +33,8 @@ interface MemberListProps {
 }
 
 export function MemberList({ members }: MemberListProps) {
-  const { deviceId } = useAuthStore();
+  const { session } = useAuthStore();
+  const userId = session?.user.id;
   const sorted = [...members].sort((a, b) => a.display_name.localeCompare(b.display_name));
 
   return (
@@ -42,7 +43,7 @@ export function MemberList({ members }: MemberListProps) {
       keyExtractor={(item) => item.id}
       scrollEnabled={false}
       renderItem={({ item }) => (
-        <MemberRow member={item} isYou={item.device_id === deviceId} />
+        <MemberRow member={item} isYou={item.user_id === userId} />
       )}
       ListEmptyComponent={
         <Text style={styles.empty}>No members yet</Text>

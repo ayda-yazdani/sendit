@@ -24,7 +24,7 @@ interface Commitment {
 
 export default function SuggestionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { deviceId } = useAuthStore();
+  const { session } = useAuthStore();
   const { activeBoardMembers } = useBoardStore();
 
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
@@ -53,12 +53,12 @@ export default function SuggestionScreen() {
       if (comms) setCommitments(comms);
 
       // Find current member ID
-      if (sug && deviceId) {
+      if (sug && session?.user.id) {
         const { data: member } = await supabase
           .from("members")
           .select("id")
           .eq("board_id", sug.board_id)
-          .eq("device_id", deviceId)
+          .eq("user_id", session.user.id)
           .single();
         if (member) {
           setCurrentMemberId(member.id);
@@ -75,7 +75,7 @@ export default function SuggestionScreen() {
       setIsLoading(false);
     };
     load();
-  }, [id, deviceId]);
+  }, [id, session]);
 
   // Real-time commitment updates
   useRealtime({

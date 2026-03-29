@@ -23,31 +23,24 @@ Return ONLY valid JSON with keys: activity_types, aesthetic, food_preferences, l
 
 const REQUIRED_KEYS = ["activity_types", "aesthetic", "food_preferences", "location_patterns", "price_range", "humour_style", "platform_mix"];
 
-async function callDeepSeekWithRetry(userPrompt: string, maxRetries = 1): Promise<string> {
-  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY not set");
+async function callGeminiWithRetry(userPrompt: string, maxRetries = 1): Promise<string> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "deepseek-chat",
-          temperature: 0.3,
-          max_tokens: 1024,
-          messages: [
-            { role: "system", content: TASTE_PROFILE_SYSTEM_PROMPT },
-            { role: "user", content: userPrompt },
-          ],
+          systemInstruction: { parts: [{ text: TASTE_PROFILE_SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
         }),
       });
-      if (!response.ok) throw new Error(`DeepSeek API ${response.status}`);
+      if (!response.ok) throw new Error(`Gemini API ${response.status}`);
       const data = await response.json();
-      return data.choices[0].message.content;
+      return data.candidates[0].content.parts[0].text;
     } catch (error) {
       if (attempt < maxRetries) {
         await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
@@ -85,7 +78,7 @@ Deno.serve(async (req: Request) => {
     const userPrompt = `Here are ${reels.length} video extractions shared by a friend group. Analyze them and produce the group taste profile with identity_label.\n\nPlatform distribution: ${JSON.stringify(platformMix)}\n\nEXTRACTIONS:\n${JSON.stringify(reelData, null, 2)}`;
 
     let response: string;
-    try { response = await callDeepSeekWithRetry(userPrompt); } catch {
+    try { response = await callGeminiWithRetry(userPrompt); } catch {
       return new Response(JSON.stringify({ error: "Taste profile generation failed", fallback: true }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

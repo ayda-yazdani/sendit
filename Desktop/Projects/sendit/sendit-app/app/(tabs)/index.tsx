@@ -1,16 +1,67 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, Modal, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Modal,
+  RefreshControl,
+  Image,
+} from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useBoardStore, Board } from "@/lib/stores/board-store";
 import { CreateBoardModal } from "@/components/board/CreateBoardModal";
 import { JoinCodeDisplay } from "@/components/board/JoinCodeDisplay";
-import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
 import { theme } from "@/constants/Theme";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+
+// Default cover images — random selection for boards without custom covers
+const DEFAULT_COVERS = [
+  "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1543007630-9710e4a00a20?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=600&h=300&fit=crop",
+  "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=600&h=300&fit=crop",
+];
+
+function getCoverForBoard(boardId: string): string {
+  let hash = 0;
+  for (let i = 0; i < boardId.length; i++) hash = boardId.charCodeAt(i) + ((hash << 5) - hash);
+  return DEFAULT_COVERS[Math.abs(hash) % DEFAULT_COVERS.length];
+}
+
+function BoardCard({ board, onPress }: { board: Board; onPress: () => void }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      onPress={onPress}
+    >
+      <Image
+        source={{ uri: getCoverForBoard(board.id) }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+      <View style={styles.cardContent}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {board.name}
+        </Text>
+        <View style={styles.cardMeta}>
+          <Text style={styles.cardCode}>
+            <FontAwesome name="key" size={11} color={theme.colors.textMuted} />
+            {"  "}{board.join_code}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 export default function BoardListScreen() {
-  const { isInitialized } = useAuthStore();
+  const { session } = useAuthStore();
   const { boards, isLoading, fetchBoards } = useBoardStore();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -19,93 +70,358 @@ export default function BoardListScreen() {
   const [joinName, setJoinName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
 
-  useEffect(() => { if (isInitialized) fetchBoards(); }, [isInitialized]);
+  useEffect(() => { if (session) fetchBoards(); }, [session]);
 
-  const handleBoardCreated = (board: Board) => { setShowCreate(false); setCreatedBoard(board); };
-  const handleDone = () => { if (createdBoard) router.push(`/board/${createdBoard.id}`); setCreatedBoard(null); };
+  const handleBoardCreated = (board: Board) => {
+    setShowCreate(false);
+    setCreatedBoard(board);
+  };
+
+  const handleDone = () => {
+    if (createdBoard) router.push(`/board/${createdBoard.id}`);
+    setCreatedBoard(null);
+  };
 
   const handleJoin = async () => {
     if (!joinCode.trim()) return;
     setIsJoining(true);
     try {
       const board = await useBoardStore.getState().joinBoard(joinCode, joinName);
-      setShowJoin(false); setJoinCode(""); setJoinName("");
+      setShowJoin(false);
+      setJoinCode("");
+      setJoinName("");
       router.push(`/board/${board.id}`);
-    } catch {} finally { setIsJoining(false); }
+    } catch {} finally {
+      setIsJoining(false);
+    }
   };
 
-  if (!isInitialized) return <View style={styles.container}><Text style={styles.loading}>Loading...</Text></View>;
+  const navigateToBoard = (board: Board) => {
+    useBoardStore.getState().setActiveBoard(board);
+    router.push(`/board/${board.id}`);
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>sendit</Text>
-      <Text style={styles.subtitle}>{boards.length > 0 ? `${boards.length} board${boards.length !== 1 ? "s" : ""}` : "Your boards will appear here"}</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>sendit</Text>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => setShowJoin(true)}
+          >
+            <FontAwesome name="sign-in" size={18} color={theme.colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => setShowCreate(true)}
+          >
+            <FontAwesome name="plus" size={16} color={theme.colors.text} />
+          </Pressable>
+        </View>
+      </View>
 
+      {/* Board List */}
       {boards.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📋</Text>
+          <View style={styles.emptyIconContainer}>
+            <FontAwesome name="users" size={32} color={theme.colors.textMuted} />
+          </View>
           <Text style={styles.emptyText}>No boards yet</Text>
-          <Text style={styles.emptyHint}>Create a board and share the code with your friends</Text>
+          <Text style={styles.emptyHint}>
+            Create a board and share the code{"\n"}with your friends
+          </Text>
+          <Pressable
+            style={styles.emptyCreateButton}
+            onPress={() => setShowCreate(true)}
+          >
+            <Text style={styles.emptyCreateText}>Create Your First Board</Text>
+          </Pressable>
         </View>
       ) : (
-        <FlatList data={boards} keyExtractor={(item) => item.id} style={styles.list}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchBoards} />}
+        <FlatList
+          data={boards}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={fetchBoards}
+              tintColor={theme.colors.warm}
+            />
+          }
           renderItem={({ item }) => (
-            <Pressable style={styles.boardCard} onPress={() => { useBoardStore.getState().setActiveBoard(item); router.push(`/board/${item.id}`); }}>
-              <Text style={styles.boardName}>{item.name}</Text>
-              <Text style={styles.boardCode}>Code: {item.join_code}</Text>
-            </Pressable>
+            <BoardCard board={item} onPress={() => navigateToBoard(item)} />
           )}
         />
       )}
 
-      <View style={styles.buttons}>
-        <Button title="Create Board" onPress={() => setShowCreate(true)} />
-        <Button title="Join with Code" onPress={() => setShowJoin(true)} variant="secondary" style={{ marginTop: 8 }} />
-      </View>
+      {/* Create Board Modal */}
+      <CreateBoardModal
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={handleBoardCreated}
+      />
 
-      <CreateBoardModal visible={showCreate} onClose={() => setShowCreate(false)} onCreated={handleBoardCreated} />
-
+      {/* Join Code Display (after creation) */}
       <Modal visible={!!createdBoard} animationType="slide" transparent>
-        <View style={styles.overlay}><View style={styles.sheet}>
-          {createdBoard && <JoinCodeDisplay board={createdBoard} onDone={handleDone} />}
-        </View></View>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            {createdBoard && (
+              <JoinCodeDisplay board={createdBoard} onDone={handleDone} />
+            )}
+          </View>
+        </View>
       </Modal>
 
+      {/* Join Board Modal */}
       <Modal visible={showJoin} animationType="slide" transparent>
-        <View style={styles.overlay}><View style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>Join Board</Text>
-          <Input label="Join Code" value={joinCode} onChangeText={(t) => setJoinCode(t.toUpperCase())} placeholder="e.g. ABC123" maxLength={6} autoFocus />
-          <Input label="Your Display Name" value={joinName} onChangeText={setJoinName} placeholder="e.g. Tom (optional)" maxLength={30} />
-          <Button title="Join Board" onPress={handleJoin} disabled={joinCode.trim().length < 3} loading={isJoining} />
-          <Pressable onPress={() => { setShowJoin(false); setJoinCode(""); setJoinName(""); }} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </Pressable>
-        </View></View>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Join Board</Text>
+            <Input
+              label="Join Code"
+              value={joinCode}
+              onChangeText={(t) => setJoinCode(t.toUpperCase())}
+              placeholder="e.g. ABC123"
+              maxLength={6}
+              autoFocus
+            />
+            <Input
+              label="Your Display Name"
+              value={joinName}
+              onChangeText={setJoinName}
+              placeholder="e.g. Tom (optional)"
+              maxLength={30}
+            />
+            <Pressable
+              style={[
+                styles.joinButton,
+                joinCode.trim().length < 3 && styles.joinButtonDisabled,
+              ]}
+              onPress={handleJoin}
+              disabled={joinCode.trim().length < 3 || isJoining}
+            >
+              <Text style={styles.joinButtonText}>
+                {isJoining ? "Joining..." : "Join Board"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { setShowJoin(false); setJoinCode(""); setJoinName(""); }}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: theme.colors.bg },
-  loading: { fontSize: 16, color: theme.colors.textSecondary, textAlign: "center", marginTop: 100, fontFamily: theme.fonts.regular },
-  title: { fontSize: 40, color: theme.colors.warm, marginBottom: 4, fontFamily: theme.fonts.display },
-  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 16, fontFamily: theme.fonts.regular },
-  emptyState: { alignItems: "center", marginVertical: 40 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 18, fontWeight: "600", color: theme.colors.textSecondary, marginBottom: 8, fontFamily: theme.fonts.semibold },
-  emptyHint: { fontSize: 14, color: theme.colors.textSecondary, textAlign: "center", maxWidth: 260, fontFamily: theme.fonts.regular },
-  list: { flex: 1, marginBottom: 16 },
-  boardCard: { backgroundColor: theme.colors.bgCard, borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: theme.colors.borderLight },
-  boardName: { fontSize: 17, fontWeight: "600", color: theme.colors.text, marginBottom: 4, fontFamily: theme.fonts.bold },
-  boardCode: { fontSize: 13, color: theme.colors.textMuted, fontFamily: theme.fonts.regular },
-  buttons: { paddingBottom: 16 },
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.overlay },
-  sheet: { backgroundColor: theme.colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  handle: { width: 36, height: 4, backgroundColor: theme.colors.borderLight, borderRadius: 2, alignSelf: "center", marginBottom: 20 },
-  sheetTitle: { fontSize: 22, fontWeight: "bold", color: theme.colors.text, marginBottom: 20, fontFamily: theme.fonts.bold },
-  cancelButton: { alignItems: "center", marginTop: 12, padding: 8 },
-  cancelText: { fontSize: 15, color: theme.colors.textMuted, fontFamily: theme.fonts.regular },
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+    backgroundColor: "#000",
+  },
+  logo: {
+    fontFamily: theme.fonts.display,
+    fontSize: 32,
+    color: theme.colors.text,
+    textShadowColor: "rgba(152, 38, 73, 0.5)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  // Card (news-tab style)
+  card: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: "hidden",
+    marginHorizontal: 16,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  cardImage: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "#2a2a2a",
+  },
+  cardContent: {
+    padding: 16,
+  },
+  cardTitle: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  cardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  cardCode: {
+    color: "#888",
+    fontSize: 13,
+    fontFamily: theme.fonts.regular,
+  },
+
+  // Empty state
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontFamily: theme.fonts.semibold,
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  emptyHint: {
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: "#888",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 28,
+  },
+  emptyCreateButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: theme.borderRadius.md,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  emptyCreateText: {
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bold,
+    fontSize: 15,
+  },
+
+  // List
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+
+  // Bottom sheet modals
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  sheet: {
+    backgroundColor: theme.colors.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+    marginBottom: 20,
+  },
+  joinButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    marginTop: 8,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  joinButtonDisabled: {
+    opacity: 0.4,
+  },
+  joinButtonText: {
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bold,
+    fontSize: 16,
+  },
+  cancelButton: {
+    alignItems: "center",
+    marginTop: 12,
+    padding: 8,
+  },
+  cancelText: {
+    fontSize: 15,
+    color: "#888",
+    fontFamily: theme.fonts.regular,
+  },
 });

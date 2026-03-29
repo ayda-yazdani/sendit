@@ -1,20 +1,17 @@
 import { create } from "zustand";
-import * as Crypto from "expo-crypto";
-import * as SecureStore from "expo-secure-store";
-
-const DEVICE_ID_KEY = "sendit_device_id";
+import { supabase } from "@/lib/supabase";
+import { Session } from "@supabase/supabase-js";
 
 interface AuthState {
-  deviceId: string | null;
-  googleId: string | null;
+  session: Session | null;
   isLoading: boolean;
   isInitialized: boolean;
   initialize: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
-  deviceId: null,
-  googleId: null,
+  session: null,
   isLoading: false,
   isInitialized: false,
 
@@ -23,15 +20,21 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({ isLoading: true });
 
     try {
-      let deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
-      if (!deviceId) {
-        deviceId = Crypto.randomUUID();
-        await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
-      }
-      set({ deviceId, isInitialized: true, isLoading: false });
+      const { data: { session } } = await supabase.auth.getSession();
+      set({ session, isInitialized: true, isLoading: false });
+
+      // Listen for auth changes
+      supabase.auth.onAuthStateChange((_event, session) => {
+        set({ session });
+      });
     } catch (error) {
       console.error("Failed to initialize auth store:", error);
-      set({ isLoading: false });
+      set({ isInitialized: true, isLoading: false });
     }
+  },
+
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ session: null });
   },
 }));
