@@ -121,7 +121,7 @@ export async function syncTasteProfile(
 export async function generateSuggestions(
   session: PersistedAuthSession,
   boardId: string,
-  payload: { category?: string; count?: number } = {}
+  payload: { category?: string; count?: number; liked_reel_ids?: string[]; disliked_reel_ids?: string[] } = {}
 ) {
   const response = await apiRequest<{ suggestions: GeneratedSuggestion[] }>(
     `/api/v1/boards/${boardId}/suggestions/generate`,
@@ -130,6 +130,8 @@ export async function generateSuggestions(
       body: JSON.stringify({
         count: payload.count ?? 1,
         ...(payload.category ? { category: payload.category } : {}),
+        liked_reel_ids: payload.liked_reel_ids ?? [],
+        disliked_reel_ids: payload.disliked_reel_ids ?? [],
       }),
     },
     session

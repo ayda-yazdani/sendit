@@ -14,7 +14,9 @@ export interface Suggestion {
 
 export async function generateSuggestion(
   boardId: string,
-  category?: string
+  category?: string,
+  likedReelIds: string[] = [],
+  dislikedReelIds: string[] = [],
 ): Promise<{ data: Suggestion | null; message?: string; error?: string }> {
   const session = useAuthStore.getState().session;
   if (!session) {
@@ -25,6 +27,8 @@ export async function generateSuggestion(
     const suggestions = await generateSuggestions(session, boardId, {
       category,
       count: 1,
+      liked_reel_ids: likedReelIds,
+      disliked_reel_ids: dislikedReelIds,
     });
     const suggestion = suggestions[0];
     if (!suggestion) {

@@ -78,6 +78,7 @@ export default function FlashcardScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(false);
 
   useEffect(() => {
     if (!boardId || !category) return;
@@ -87,34 +88,43 @@ export default function FlashcardScreen() {
         const currentMember = members.find((member) => member.device_id === session.user.id);
         if (currentMember) {
           const data = await listBoardReels(session, boardId, currentMember.id);
-        const filtered = data.filter(
-          (r: Reel) => (r.classification || "uncategorised") === category
-        );
-        setReels(filtered);
+          const filtered = data.filter(
+            (r: Reel) => (r.classification || "uncategorised") === category
+          );
+          setReels(filtered);
+        }
       }
-      }
-
-      const generatedSuggestion = await generateSuggestion(boardId, category);
-      if (generatedSuggestion.data) setSuggestion(generatedSuggestion.data);
       setIsLoading(false);
     };
     load();
   }, [boardId, category, session]);
 
-  // Trigger suggestion generation once the user has liked at least 1 reel
-  useEffect(() => {
-    if (!boardId || suggestion || isGeneratingSuggestion) return;
-    const hasLikes = swipedReels.some((s) => s.direction === "right");
-    if (!hasLikes) return;
+  const triggerSuggestion = useCallback(async () => {
+    if (!boardId || isGeneratingSuggestion) return;
+    const liked = swipedReels.filter((s) => s.direction === "right").map((s) => s.reel.id);
+    const disliked = swipedReels.filter((s) => s.direction === "left").map((s) => s.reel.id);
+    if (liked.length === 0) return;
 
     setIsGeneratingSuggestion(true);
-    generateSuggestion(boardId)
-      .then((result) => {
-        if (result.data) setSuggestion(result.data);
-      })
-      .catch((err) => console.warn("Suggestion generation failed:", err))
-      .finally(() => setIsGeneratingSuggestion(false));
-  }, [swipedReels, boardId, suggestion, isGeneratingSuggestion]);
+    setSuggestionError(false);
+    // Don't pass 'uncategorised' — it's not a valid backend classification
+    const cat = category === "uncategorised" ? undefined : category;
+    const result = await generateSuggestion(boardId, cat, liked, disliked);
+    if (result.data) {
+      setSuggestion(result.data);
+    } else {
+      setSuggestionError(true);
+    }
+    setIsGeneratingSuggestion(false);
+  }, [boardId, category, swipedReels, isGeneratingSuggestion]);
+
+  // Trigger suggestion generation once the user has liked at least 1 reel
+  useEffect(() => {
+    if (!boardId || suggestion || isGeneratingSuggestion || suggestionError) return;
+    const hasLikes = swipedReels.some((s) => s.direction === "right");
+    if (!hasLikes) return;
+    triggerSuggestion();
+  }, [swipedReels, boardId, suggestion, isGeneratingSuggestion, suggestionError, triggerSuggestion]);
 
   const allSwiped = currentIndex >= reels.length;
   const currentReel = reels[currentIndex];
@@ -236,10 +246,18 @@ export default function FlashcardScreen() {
             <Text style={styles.suggestionEmptyText}>
               {isGeneratingSuggestion
                 ? "Generating personalised suggestions..."
-                : likedReels.length > 0
-                  ? "Generating personalised suggestions..."
+                : suggestionError
+                  ? "Couldn't generate suggestions"
                   : "Swipe to unlock activity suggestions"}
             </Text>
+            {suggestionError && !isGeneratingSuggestion && (
+              <Pressable
+                onPress={() => { setSuggestionError(false); triggerSuggestion(); }}
+                style={[styles.retryButton, { borderColor: accent }]}
+              >
+                <Text style={[styles.retryText, { color: accent }]}>Tap to retry</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -490,6 +508,11 @@ const styles = StyleSheet.create({
     alignItems: "center", marginBottom: 12,
   },
   suggestionEmptyText: { fontSize: 12, fontFamily: theme.fonts.regular, color: "#666" },
+  retryButton: {
+    marginTop: 10, paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 8, borderWidth: 1,
+  },
+  retryText: { fontSize: 12, fontFamily: theme.fonts.semibold },
 
   feedItem: {
     flexDirection: "row", backgroundColor: "#1a1a1a",

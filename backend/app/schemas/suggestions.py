@@ -10,6 +10,8 @@ class SuggestionsGenerateRequest(BaseModel):
         "real_event", "real_venue", "recipe_food", "vibe_inspiration", "humour_identity"
     ] | None = Field(default=None, description="Filter reels by classification category")
     count: int = Field(default=5, ge=1, le=20, description="Number of suggestions to generate")
+    liked_reel_ids: list[str] = Field(default_factory=list, description="Reel IDs the user swiped right on")
+    disliked_reel_ids: list[str] = Field(default_factory=list, description="Reel IDs the user swiped left on")
 
 
 class Suggestion(BaseModel):
